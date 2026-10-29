@@ -62,7 +62,9 @@ if [[ ! -d "$content/.git" ]]; then
 	runuser -u denwiki -- git -C "$content" -c user.name=den-wiki -c user.email=den-wiki@den-wiki.local \
 		commit -q -m "Seed den-wiki-content from the den-wiki content template"
 fi
-install -D -o denwiki -g denwiki -m 0644 "$bundle/deploy/ok-local-config.yml" "$content/.ok/local/config.yml"
+# OK keeps its lock and local state here, so the directory must be denwiki's.
+install -d -o denwiki -g denwiki "$content/.ok/local"
+install -o denwiki -g denwiki -m 0644 "$bundle/deploy/ok-local-config.yml" "$content/.ok/local/config.yml"
 
 echo "== firewall"
 install -m 0755 "$bundle/deploy/nftables.conf" /etc/nftables.conf
