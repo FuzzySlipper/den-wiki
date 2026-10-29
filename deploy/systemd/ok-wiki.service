@@ -1,0 +1,20 @@
+[Unit]
+Description=OpenKnowledge server for den-wiki content (UI and MCP)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=denwiki
+Group=denwiki
+WorkingDirectory=/srv/den-wiki-content
+Environment=PATH=/opt/node/current/bin:/usr/local/bin:/usr/bin:/bin
+Environment=NO_COLOR=1
+ExecStart=/opt/openknowledge/current/node_modules/.bin/ok start --port 4800 --bind 0.0.0.0 --external-url https://wiki.dragonden.stream --no-open-browser --idle-shutdown off
+# OK's server process detaches from the CLI that starts it, so stop the
+# whole cgroup.
+KillMode=control-group
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

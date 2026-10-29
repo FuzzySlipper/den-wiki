@@ -1,0 +1,9 @@
+[Unit]
+Description=Push den-wiki content to its backup remotes
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=denwiki
+Group=denwiki
+ExecStart=/usr/local/lib/den-wiki/push.sh /srv/den-wiki-content

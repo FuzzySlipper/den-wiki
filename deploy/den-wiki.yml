@@ -1,0 +1,8 @@
+# den-wiki serve configuration in the den-wiki container (CT 108).
+# Installed as /etc/den-wiki/den-wiki.yml by deploy/provision.sh.
+listen: 192.168.1.13:7341
+database: /var/lib/den-wiki/den-wiki.db
+content_dir: /srv/den-wiki-content
+openknowledge:
+  url: http://127.0.0.1:4800/mcp
+  timeout: 30s

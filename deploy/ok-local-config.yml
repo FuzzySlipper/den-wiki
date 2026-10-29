@@ -1,0 +1,6 @@
+# OpenKnowledge project-local config, installed as
+# /srv/den-wiki-content/.ok/local/config.yml (untracked: .ok/.gitignore
+# ignores local/). allowExternal is project-local only, and without it OK
+# refuses Caddy's forwarded requests (#10462).
+server:
+  allowExternal: true

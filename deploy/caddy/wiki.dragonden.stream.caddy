@@ -1,0 +1,18 @@
+# Site block for CT 104's /etc/caddy/Caddyfile. Certificates come from the
+# global cert_issuer (Cloudflare DNS challenge). The den-wiki service's paths
+# are open on the LAN like den.dragonden.stream; the OpenKnowledge UI, which
+# gives full control to whoever reaches it, sits behind basic auth.
+wiki.dragonden.stream {
+	@facade path /mcp /mcp/* /healthz /version /v1/*
+	handle @facade {
+		reverse_proxy 192.168.1.13:7341
+	}
+	handle {
+		basic_auth {
+			patch {{BCRYPT_HASH}}
+		}
+		reverse_proxy 192.168.1.13:4800 {
+			flush_interval -1
+		}
+	}
+}

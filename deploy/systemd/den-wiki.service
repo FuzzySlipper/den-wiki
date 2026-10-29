@@ -1,0 +1,14 @@
+[Unit]
+Description=den-wiki service: MCP facade, ledger API and content commits
+After=network-online.target ok-wiki.service
+Wants=network-online.target ok-wiki.service
+
+[Service]
+User=denwiki
+Group=denwiki
+ExecStart=/usr/local/bin/den-wiki serve --config /etc/den-wiki/den-wiki.yml
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
