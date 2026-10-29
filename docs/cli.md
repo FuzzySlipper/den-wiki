@@ -31,6 +31,7 @@ den-wiki search lease              # operations matching all terms
 den-wiki describe job_claim        # full entry with input schema (JSON)
 den-wiki job_claim --help          # fields, limits, examples, schema
 den-wiki catalog                   # the whole catalog as JSON
+den-wiki health                    # /healthz beside the endpoint; exit 6 unless all ok
 ```
 
 ## Call

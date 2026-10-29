@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -251,5 +254,28 @@ func TestConfigFileSuppliesAgentAndEndpoint(t *testing.T) {
 	code = Run([]string{"job_get", "--id", "1", "--config", cfg}, Env{Stdout: &out, Stderr: &errb, Transport: tr})
 	if code != ExitUsage {
 		t.Fatalf("unknown config key accepted: %d", code)
+	}
+}
+
+func TestHealthReadsHealthzBesideTheEndpoint(t *testing.T) {
+	report := `{"checks":{"ledger":"ok","openknowledge":"ok"},"status":"ok"}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/healthz" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = io.WriteString(w, report)
+	}))
+	defer srv.Close()
+	if code, out, e := runCLI(t, nil, "health", "--endpoint", srv.URL+"/mcp"); code != ExitOK || !strings.Contains(out, `"openknowledge": "ok"`) {
+		t.Fatalf("healthy: exit %d\n%s%s", code, out, e)
+	}
+	report = `{"checks":{"ledger":"ok","openknowledge":"unavailable: refused"},"status":"ok"}`
+	if code, _, e := runCLI(t, nil, "health", "--endpoint", srv.URL+"/mcp"); code != ExitUnavailable || !strings.Contains(e, "unhealthy: openknowledge") {
+		t.Fatalf("degraded backend: exit %d %s", code, e)
+	}
+	srv.Close()
+	if code, _, e := runCLI(t, nil, "health", "--endpoint", srv.URL+"/mcp"); code != ExitUnavailable || !strings.Contains(e, "unreachable") {
+		t.Fatalf("down: exit %d %s", code, e)
 	}
 }

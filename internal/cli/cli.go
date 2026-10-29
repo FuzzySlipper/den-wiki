@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -164,6 +166,11 @@ func Run(args []string, env Env) int {
 	case "catalog":
 		_, _ = env.Stdout.Write(cat.Marshal())
 		return ExitOK
+	case "health":
+		if len(rest) != 0 {
+			return usageErr(env, g.human, registry.CodeInvalidArguments, "usage: den-wiki health")
+		}
+		return health(env, g)
 	}
 	e, ok := cat.Find(cmd)
 	if !ok {
@@ -259,18 +266,70 @@ func search(env Env, cat Catalog, g globals, terms []string) int {
 	return ExitOK
 }
 
-func callOp(env Env, e Entry, g globals, rest []string) int {
-	cfgPath := g.config
+// settings resolves the config file, endpoint and agent from flags and config.
+func settings(g globals) (cfgPath, endpoint, agent string, err error) {
+	cfgPath = g.config
 	if !g.configSet {
 		cfgPath = DefaultConfigPath()
 	}
 	cfg, err := loadConfig(cfgPath, g.configSet)
 	if err != nil {
+		return cfgPath, "", "", err
+	}
+	return cfgPath, firstNonEmpty(g.endpoint, cfg.Endpoint, DefaultEndpoint), firstNonEmpty(g.agent, cfg.Agent), nil
+}
+
+// health reads /healthz beside the MCP endpoint (.../mcp -> .../healthz),
+// prints it, and exits 0 only when den-wiki and every backend report ok.
+func health(env Env, g globals) int {
+	_, endpoint, _, err := settings(g)
+	if err != nil {
 		return usageErr(env, g.human, registry.CodeInvalidArguments, "config: "+err.Error())
 	}
-	endpoint := firstNonEmpty(g.endpoint, cfg.Endpoint, DefaultEndpoint)
-	agent := firstNonEmpty(g.agent, cfg.Agent)
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return usageErr(env, g.human, registry.CodeInvalidArguments, "endpoint: "+err.Error())
+	}
+	u.Path = strings.TrimSuffix(strings.TrimSuffix(u.Path, "/"), "/mcp") + "/healthz"
+	unavailable := func(msg string) int {
+		return fail(env, g.human, &registry.Error{Code: registry.CodeBackendUnavailable, Message: msg, Retryable: true})
+	}
+	resp, err := (&http.Client{Timeout: 15 * time.Second}).Get(u.String())
+	if err != nil {
+		return unavailable("den-wiki is unreachable at " + u.String() + ": " + err.Error())
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	var h struct {
+		Status string            `json:"status"`
+		Checks map[string]string `json:"checks"`
+	}
+	if err := json.Unmarshal(raw, &h); err != nil {
+		return unavailable(fmt.Sprintf("%s answered %d without a health report", u.String(), resp.StatusCode))
+	}
+	if g.human {
+		fmt.Fprint(env.Stdout, render(raw, 0))
+	} else {
+		writeRaw(env.Stdout, raw)
+	}
+	var bad []string
+	for name, v := range h.Checks {
+		if v != "ok" {
+			bad = append(bad, name)
+		}
+	}
+	if h.Status != "ok" || len(bad) > 0 {
+		sort.Strings(bad)
+		return unavailable("unhealthy: " + firstNonEmpty(strings.Join(bad, ", "), "status "+h.Status))
+	}
+	return ExitOK
+}
 
+func callOp(env Env, e Entry, g globals, rest []string) int {
+	cfgPath, endpoint, agent, err := settings(g)
+	if err != nil {
+		return usageErr(env, g.human, registry.CodeInvalidArguments, "config: "+err.Error())
+	}
 	args, err := buildArgs(e, g, rest, env.Stdin)
 	if err != nil {
 		return fail(env, g.human, registry.ErrorOf(err))
