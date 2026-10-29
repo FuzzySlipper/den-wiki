@@ -135,6 +135,29 @@ func TestFlagsMirrorSchema(t *testing.T) {
 	}
 }
 
+// An explicit empty array reaches the transport as [], from field flags and
+// from --args-json alike.
+func TestEmptyArraysStayEmpty(t *testing.T) {
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"job_list", "--statuses", "[]"}, `{"statuses":[]}`},
+		{[]string{"job_list", "--args-json", `{"statuses":[]}`}, `{"statuses":[]}`},
+		{[]string{"job_finish", "--id", "1", "--lease_token", "t", "--trail_slug", "run", "--output-pages", "[]"}, `{"id":1,"lease_token":"t","output_pages":[],"trail_slug":"run"}`},
+		{[]string{"job_finish", "--args-json", `{"id":1,"lease_token":"t","trail_slug":"run","output_pages":[]}`}, `{"id":1,"lease_token":"t","output_pages":[],"trail_slug":"run"}`},
+	} {
+		tr := &fakeTransport{}
+		code, _, errOut := runCLI(t, tr, append(c.args, "--agent", "a")...)
+		if code != ExitOK || len(tr.calls) != 1 {
+			t.Fatalf("%v: exit %d, %d calls: %s", c.args, code, len(tr.calls), errOut)
+		}
+		if got, _ := json.Marshal(tr.calls[0].args); string(got) != c.want {
+			t.Errorf("%v: sent %s, want %s", c.args, got, c.want)
+		}
+	}
+}
+
 // Usage errors are caught locally: no request is made.
 func TestUsageErrorsMakeNoCall(t *testing.T) {
 	cases := []struct {

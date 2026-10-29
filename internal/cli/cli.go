@@ -364,7 +364,12 @@ func buildArgs(e Entry, g globals, rest []string, stdin io.Reader) (map[string]a
 			return nil, &registry.Error{Code: registry.CodeInvalidArguments, Message: "--" + name + ": " + err.Error()}
 		}
 		if typ == "array" {
+			// Start from a non-nil slice so an explicit '[]' stays [] and is
+			// not sent as null.
 			prev, _ := args[field].([]any)
+			if prev == nil {
+				prev = []any{}
+			}
 			args[field] = append(prev, v.([]any)...)
 			continue
 		}
