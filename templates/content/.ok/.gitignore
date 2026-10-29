@@ -1,0 +1,14 @@
+# What `ok init` would ignore (den-wiki never runs ok init), plus the OKF
+# schema copies OK writes at boot.
+local/
+worktrees/
+cache/
+tmp/
+okf/
+principal.json
+state.json
+server.lock
+ui.lock
+sync-state.json
+conflicts.json
+last-spawn-error.log

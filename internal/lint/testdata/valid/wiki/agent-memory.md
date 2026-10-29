@@ -21,6 +21,6 @@ entry matters most.[^2]
 [^9]: [ignored](../sources/not-checked-inside-code.md)
 ```
 
-[^1]: [Survey](../sources/agent-memory-survey.md) "Agents that keep an external, editable memory answer follow-up questions more consistently"
+[^1]: [The survey](../sources/agent-memory-survey.md) "Agents that keep an external, editable memory answer follow-up questions more consistently"
 [^2]: [Revised survey](/sources/agent-memory-survey-refetch-2026-10-29.md)
     "The effect is largest when memory entries carry their provenance."

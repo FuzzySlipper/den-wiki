@@ -1,17 +1,22 @@
-# OpenKnowledge project config for den-wiki-content.
+# OpenKnowledge project config for den-wiki-content (checked against OK 0.88.11, #10462).
 # The schemas in .ok/schemas/ are copies of FuzzySlipper/den-wiki schemas/;
 # den-wiki's tests keep them identical. den-wiki lint is the full contract check.
+# appliesTo globs match extension-less doc names, so they carry no .md.
 contentRules:
   frontmatter:
     enabled: true
     schemas:
-      - appliesTo: "wiki/**/*.md"
+      - appliesTo: ["wiki/**", "!**/index"]
         file: .ok/schemas/wiki-page.schema.json
-      - appliesTo: "sources/**/*.md"
+      - appliesTo: ["sources/**", "!**/index"]
         file: .ok/schemas/source.schema.json
-      - appliesTo: "trails/*.md"
+      - appliesTo: ["trails/*", "!trails/index"]
         file: .ok/schemas/trail.schema.json
   okf:
     enabled: true
+    rules:
+      # OKF v0.2 reserves sources (objects), verified (events) and status;
+      # den-wiki uses sources and verified differently, on purpose.
+      frontmatter-provenance: false
     generate:
       index: true

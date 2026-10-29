@@ -4,11 +4,23 @@
   "title": "den-wiki trails/ frontmatter",
   "description": "Frontmatter of a trail page: one research run or curation run. Trails are append-only.",
   "type": "object",
-  "required": ["question", "started", "agent", "harness"],
+  "required": [
+    "question",
+    "started",
+    "agent",
+    "harness"
+  ],
   "properties": {
+    "type": {
+      "description": "Always \"trail\". OKF requires a type on every document; it also groups the generated index.",
+      "const": "trail"
+    },
     "job": {
       "description": "Research ledger job id. Absent for runs that were not queued as a ledger job.",
-      "type": ["string", "integer"]
+      "type": [
+        "string",
+        "integer"
+      ]
     },
     "question": {
       "type": "string",

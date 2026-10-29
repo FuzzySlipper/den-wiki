@@ -1,4 +1,8 @@
 ---
+template:
+  title: Trail
+  description: One research or curation run.
+type: trail
 job: ""
 question: The question this run set out to answer
 started: 2026-01-01T00:00:00Z

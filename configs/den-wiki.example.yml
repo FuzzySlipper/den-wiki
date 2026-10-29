@@ -1,0 +1,17 @@
+# den-wiki serve configuration (den-wiki serve --config <this file>).
+# Relative paths resolve against this file's directory. Unknown keys are errors.
+
+# Loopback or private-LAN address only: den-wiki has no auth of its own.
+listen: 127.0.0.1:7341
+
+# SQLite file for the research ledger and the read log.
+database: /var/lib/den-wiki/den-wiki.db
+
+# The den-wiki-content checkout that OpenKnowledge serves. It enables the
+# wiki tools' commits, wiki_lint and job_finish's trail-page check.
+content_dir: /srv/den-wiki-content
+
+openknowledge:
+  # OK's MCP endpoint, on loopback beside the facade. Empty disables the wiki tools.
+  url: http://127.0.0.1:4800/mcp
+  timeout: 30s

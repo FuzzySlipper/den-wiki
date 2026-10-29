@@ -1,5 +1,5 @@
 zone: sources
-description: Captured source material - articles, papers, transcripts, repo manifests.
+description: "Captured source material, never edited; a re-fetch is a new file with supersedes. sha256 covers the body after the frontmatter. captured_by_trail names the capturing run. Full rules: rules below and docs/content-contract.md."
 mutability: Never edited. A re-fetch is a new file whose supersedes names the earlier capture.
 rules:
   - Store the capture as Markdown under a frontmatter block that follows schemas/source.schema.json.

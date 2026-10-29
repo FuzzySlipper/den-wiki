@@ -1,4 +1,7 @@
 ---
+template:
+  title: Wiki page
+  description: One page per concept, entity, comparison, synthesis or hub.
 type: concept
 title: New page
 aliases: []
@@ -24,4 +27,4 @@ State each claim once and cite it.[^1]
 
 - Links to related wiki/ pages.
 
-[^1]: [sources/example.md](../sources/example.md) "the exact sentence from the source that supports the claim"
+[^1]: [The source title](/sources/example.md) "the exact sentence from the source that supports the claim"

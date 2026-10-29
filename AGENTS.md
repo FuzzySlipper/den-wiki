@@ -8,7 +8,7 @@ those come from OpenKnowledge, run unmodified as a pinned npm package and
 reached only over HTTP/MCP (it is GPL-3; den-wiki's code stays outside that
 licence).
 
-Den guidance: run `den-tool den get_agent_guidance --project-id _global` and read `_global/den-operating-contract` before task work. Project documents: `den-wiki/den-wiki-design`.
+Den guidance: run `den-tool den get_agent_guidance --project-id _global` and read `_global/den-operating-contract` before task work. Project documents: `den-wiki/den-wiki-design`, `den-wiki/ok-integration-findings`, `den-wiki/known-limitations`.
 
 Repository rules:
 - `docs/content-contract.md` is the current-state content contract and `schemas/` is the source of truth for frontmatter. A change to either lands with the matching lint change and tests in the same commit; if it changes the design, update `den-wiki/den-wiki-design` in the same task.
@@ -16,4 +16,7 @@ Repository rules:
 - `templates/content/` is the skeleton for `den-wiki-content` and must lint clean. Its `.ok/schemas/` are byte-identical copies of `schemas/`; copy them again when a schema changes.
 - The content repository is not this repository. Do not add research content here beyond test fixtures.
 - One Go module, standard library first. Keep the CLI thin and put rule logic in `internal/`.
-- Before review: `scripts/verify.sh` (gofumpt, `go vet ./...`, `go test ./...`, template lint). CI runs it as the `verify` job.
+- One operation registry (`internal/registry`) is the source for MCP tools and the CLI. Operations are added in `internal/facade`; the facade owns no domain state. See `docs/facade.md`.
+- OpenKnowledge is reached only over its MCP endpoint, pinned in `scripts/ok-version`. Never vendor, link or patch it.
+- Configuration comes from flags and YAML files, never environment variables.
+- Before review: `scripts/verify.sh` (gofumpt, `go vet ./...`, `go test ./...`, template lint), and `scripts/ok-integration.sh <dir> --isolate-home` when the facade or content template changes. CI runs them as the `verify` and `ok-integration` jobs.

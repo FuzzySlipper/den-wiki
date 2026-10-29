@@ -1,5 +1,5 @@
-// Command den-wiki is the den-wiki CLI. For now it has one operation, lint,
-// which checks a content directory against docs/content-contract.md.
+// Command den-wiki is the den-wiki CLI and service: local content lint and
+// serve.
 package main
 
 import (
@@ -21,18 +21,17 @@ const (
 	exitRuntime  = 3
 )
 
+func main() {
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
 const usage = `den-wiki: tools for the den-wiki research knowledge base.
 
 Usage:
   den-wiki lint [flags] <content-dir>   check content against the content contract
+  den-wiki serve --config <file>        run the den-wiki service (MCP facade and ledger)
   den-wiki help                         show this help
-
-Run "den-wiki lint --help" for lint flags.
 `
-
-func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
-}
 
 func run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
@@ -42,6 +41,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "lint":
 		return runLint(args[1:], stdout, stderr)
+	case "serve":
+		return runServe(args[1:], stderr)
 	case "help", "-h", "--help":
 		fmt.Fprint(stdout, usage)
 		return exitOK

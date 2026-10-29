@@ -25,14 +25,17 @@ frontmatter. The design rationale lives in Den document
 den-wiki-content/
   index.md          generated root index (frontmatter: okf_version only)
   taxonomy.yml      page types and tags
-  .ok/              OpenKnowledge config and schema copies
+  .gitattributes    OpenKnowledge's generated-index block (required for indexes)
+  .ok/              OpenKnowledge config, schema copies and .gitignore
   sources/          captured material, never edited
   trails/           one page per research or curation run, append-only
   wiki/             one page per concept, the current understanding
 ```
 
 Nothing else belongs at the root (`zone.outside`). Dot-files and dot-folders
-(`.git`, `.ok`, `.gitignore`) are tooling and are not checked.
+(`.git`, `.ok`, `.gitignore`, `.gitattributes`) are tooling and are not
+checked. The content template ships what `ok init` would otherwise create;
+never run `ok init` on the content repo.
 
 ### Zones
 
@@ -49,9 +52,14 @@ version. Never write state as if it were an event (`truth-<date>.md`,
 
 Each zone folder carries `.ok/frontmatter.yml`, an open-shape map stating the
 zone's rules (`zone`, `description`, `mutability`, `rules`, `template`,
-`contract`). OK shows folder properties when an agent lists a folder, so the
-rules travel with the folder. Each zone also has an OK per-folder template in
-`.ok/templates/` (`page`, `source`, `trail`) to start new files from.
+`contract`). OK shows only the `description` when an agent lists a folder, so
+the description carries each zone's essential rules in one paragraph; the
+den-wiki facade adds the full `rules` list to its read and list results. Each
+zone also has an OK per-folder template in `.ok/templates/` (`page`, `source`,
+`trail`) to start new files from. A template's own menu title and description
+nest under a `template:` key; every other key is the new document's starting
+frontmatter. (A top-level `title` would make OK treat the whole block as
+template metadata and start new documents with no frontmatter.)
 
 Lint checks only `.md` files. OK stores pasted files in `<doc>.assets/` folders
 beside the document; lint skips those folders. Other non-Markdown files are
@@ -109,6 +117,7 @@ case-insensitively; one concept has one page.
 
 | Field | Required | Meaning |
 |---|---|---|
+| `type` | | Always `source`; OKF wants a type on every document |
 | `title` | | Title of the captured material |
 | `source_url` | yes | Where it was captured from (a URI) |
 | `captured` | yes | When it was captured |
@@ -125,6 +134,7 @@ Quote the hash in YAML (`sha256: "…"`) so an all-digit value stays a string.
 
 | Field | Required | Meaning |
 |---|---|---|
+| `type` | | Always `trail`; OKF wants a type on every document |
 | `job` | | Research ledger job id; absent for runs not queued in the ledger |
 | `question` | yes | The question the run set out to answer |
 | `started` | yes | When the run started |
@@ -157,13 +167,22 @@ under `sources/` and quotes the span that supports the claim, in double quotes
 ```markdown
 External memory makes agents more consistent.[^1]
 
-[^1]: [Survey](../sources/agent-memory-survey.md) "Agents that keep an external, editable memory answer follow-up questions more consistently"
+[^1]: [The survey](../sources/agent-memory-survey.md) "Agents that keep an external, editable memory answer follow-up questions more consistently"
 ```
 
 Links may be relative to the page or root-relative (`/sources/...`). A footnote
 may continue on indented lines. Lint checks that the linked source exists
 (`citation.missing_source`) and that the footnote quotes something
 (`citation.missing_quote`). Footnotes inside fenced code blocks are ignored.
+
+The link text has at least two words (`citation.one_word_text`): OK reads
+`[^1]: [Survey](path)` as a link reference definition and reports a bogus dead
+link.
+
+Link with Markdown inline links, relative or root-relative, not
+`[[wikilinks]]` (OKF flags every wikilink as non-portable) and not
+reference-style definitions (`[r]: path.md`), which OK's `move` does not
+rewrite.
 
 ## Commit convention
 
@@ -173,6 +192,13 @@ subject, mirroring `(#task_id)` in code repos:
 ```
 Add agent memory page (trail:agent-memory-research-2026-10-28)
 ```
+
+OpenKnowledge never commits to the content repo (its own history lives in a
+shadow repo under `.git/ok`), so the den-wiki facade makes these commits: every
+`wiki_write`, `wiki_edit`, `wiki_move` and `wiki_delete` takes a `trail`, and
+the facade commits the files it changed with the calling agent as author and
+`<summary> (trail:<slug>)` as subject. OK's autoSync stays off; its
+`Auto-save: N files changed` commits would carry neither.
 
 `<slug>` is the trail's filename without `.md`, and `trails/<slug>.md` must exist
 in that commit, so commit the trail with (or before) the pages it changed.
@@ -202,8 +228,16 @@ starts with `DEPRECATED`, `Obsolete`, `Superseded`, `Outdated` or `Old`
 
 Each folder's `index.md` is machine-maintained by OK's OKF index generation
 (`contentRules.okf.generate.index` in `.ok/config.yml`) and never hand-written.
-Following OKF, index files carry no frontmatter, except `okf_version` in the
-root `index.md` (`index.frontmatter`). Lint does not check index content.
+Generation stays paused until the content root has OK's `.gitattributes`
+block (in the template). OK rewrites the root `index.md` too, keeping its
+`okf_version`. Following OKF, index files carry no frontmatter, except
+`okf_version` in the root `index.md` (`index.frontmatter`). Lint does not check
+index content. OK leaves regenerated indexes uncommitted; the den-wiki facade
+commits them in their own untagged commits, which the commit checks exempt.
+
+Each document's `type` groups it in its folder's index. OKF requires a `type`
+on every document, so sources carry `type: source` and trails `type: trail`
+(both optional in the schemas, and set by the templates).
 
 ## Trail page format
 
@@ -272,6 +306,7 @@ exit code never reflects findings, because rules are findings, not write blocks.
 | `wiki.name_collision` | warning | Two pages share a title or alias |
 | `citation.missing_source` | warning | A citation links to a missing source |
 | `citation.missing_quote` | warning | A citation does not quote its span |
+| `citation.one_word_text` | warning | A citation footnote starts with one-word link text |
 | `source.sha256_mismatch` | error | A source body does not match its `sha256` |
 | `source.supersedes_missing` | warning | A `supersedes` target does not exist, or is the file itself |
 | `trail.section_missing` | warning | A trail lacks a required section |

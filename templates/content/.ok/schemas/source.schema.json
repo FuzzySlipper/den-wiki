@@ -4,8 +4,17 @@
   "title": "den-wiki sources/ frontmatter",
   "description": "Frontmatter of a captured source under sources/. Sources are never edited; a re-fetch is a new file that names the old one in supersedes.",
   "type": "object",
-  "required": ["source_url", "captured", "sha256", "captured_by_trail"],
+  "required": [
+    "source_url",
+    "captured",
+    "sha256",
+    "captured_by_trail"
+  ],
   "properties": {
+    "type": {
+      "description": "Always \"source\". OKF requires a type on every document; it also groups the generated index.",
+      "const": "source"
+    },
     "title": {
       "type": "string",
       "pattern": "\\S"

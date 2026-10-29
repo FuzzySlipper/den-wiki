@@ -49,6 +49,7 @@ var (
 	codeWikiNameCollision = rule("wiki.name_collision", Warning, "two pages share a title or alias, so one concept has two pages")
 	codeCitationSource    = rule("citation.missing_source", Warning, "a citation footnote links to a sources/ file that does not exist")
 	codeCitationQuote     = rule("citation.missing_quote", Warning, "a citation footnote links to a source without quoting the supporting span")
+	codeCitationOneWord   = rule("citation.one_word_text", Warning, "a citation footnote starts with one-word link text, which OpenKnowledge misreads")
 	codeSourceHash        = rule("source.sha256_mismatch", Error, "a source's body does not match its sha256 field")
 	codeSourceSupersedes  = rule("source.supersedes_missing", Warning, "a source's supersedes target does not exist")
 	codeTrailSection      = rule("trail.section_missing", Warning, "a trail lacks one of the required sections")

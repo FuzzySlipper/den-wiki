@@ -1,5 +1,5 @@
 zone: wiki
-description: One page per concept, entity, comparison, synthesis or hub - the current understanding.
+description: "One page per concept, the current understanding. Edit in place; merge or delete, never relabel. Lowercase slug names, no dates or -v2/-old. Tags from taxonomy.yml. Cite claims with footnotes quoting a sources/ file. Commits carry (trail:<slug>). Full rules: rules below and docs/content-contract.md."
 mutability: Edited in place, merged and deleted freely. git keeps every version.
 rules:
   - One concept, one page. Search titles and aliases before creating a page; add a new name as an alias instead of a new page.

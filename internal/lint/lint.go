@@ -210,9 +210,9 @@ func (l *linter) checkIndex(rel string, isRoot bool) error {
 func zoneShape(fields map[string]any) string {
 	has := func(k string) bool { _, ok := fields[k]; return ok }
 	switch {
-	case has("sha256") || has("source_url") || has("captured_by_trail"):
+	case fields["type"] == "source" || has("sha256") || has("source_url") || has("captured_by_trail"):
 		return zoneSources
-	case has("question") && (has("harness") || has("started") || has("job")):
+	case fields["type"] == "trail" || has("question") && (has("harness") || has("started") || has("job")):
 		return zoneTrails
 	case has("curation") || has("confidence") || has("volatility"):
 		return zoneWiki
@@ -337,6 +337,9 @@ func (l *linter) reportNameCollisions() {
 
 var (
 	footnoteDef = regexp.MustCompile(`^\[\^[^\]]+\]:\s*(.*)$`)
+	// OpenKnowledge reads "[^1]: [Word](path)" as a link reference definition
+	// when the link text is one word, and reports a bogus dead link (#10462).
+	oneWordLead = regexp.MustCompile(`^\[([^\]\s]+)\]\(`)
 	mdLink      = regexp.MustCompile(`\]\(([^)\s]+)(?:\s+"[^"]*")?\)`)
 	quotedSpan  = regexp.MustCompile(`"[^"]*\S[^"]*"|“[^”]*\S[^”]*”|(^|\s)>\s*\S`)
 	fenceLine   = regexp.MustCompile("^\\s*(```|~~~)")
@@ -360,6 +363,11 @@ func (l *linter) checkCitations(rel string, doc document) {
 			continue
 		}
 		text := m[1]
+		if w := oneWordLead.FindStringSubmatch(text); w != nil {
+			f := newFinding(codeCitationOneWord, rel, "citation link text \""+w[1]+"\" is one word; OpenKnowledge misreads it as a link definition, so use at least two words")
+			f.Line = doc.bodyLine + i
+			l.add(f)
+		}
 		// Footnote definitions may continue on indented lines.
 		for j := i + 1; j < len(lines) && (strings.HasPrefix(lines[j], "    ") || strings.HasPrefix(lines[j], "\t")); j++ {
 			text += " " + strings.TrimSpace(lines[j])

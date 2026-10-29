@@ -1,4 +1,8 @@
 ---
+template:
+  title: Source capture
+  description: Captured material, stored unedited under its frontmatter.
+type: source
 title: Title of the captured material
 source_url: https://example.com/article
 captured: 2026-01-01

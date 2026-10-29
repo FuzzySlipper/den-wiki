@@ -189,6 +189,12 @@ func TestEachRuleFails(t *testing.T) {
 		{"citation without quote", func(t *testing.T, r string) {
 			replace(t, r, page, ` "Agents that keep an external, editable memory answer follow-up questions more consistently"`, "")
 		}, "citation.missing_quote", page},
+		{"one-word citation text", func(t *testing.T, r string) {
+			replace(t, r, page, "[^1]: [The survey](", "[^1]: [Survey](")
+		}, "citation.one_word_text", page},
+		{"page shaped as source by type", func(t *testing.T, r string) {
+			write(t, r, "wiki/capture.md", "---\ntype: source\ntitle: x\n---\nbody\n")
+		}, "zone.misplaced", "wiki/capture.md"},
 		{"source edited", func(t *testing.T, r string) { replace(t, r, source, "more\nconsistently", "far more\nconsistently") }, "source.sha256_mismatch", source},
 		{"supersedes missing", func(t *testing.T, r string) {
 			replace(t, r, "sources/agent-memory-survey-refetch-2026-10-29.md", "supersedes: sources/agent-memory-survey.md", "supersedes: sources/never-captured.md")
