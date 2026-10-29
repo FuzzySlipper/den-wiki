@@ -15,6 +15,8 @@ OpenKnowledge.
 - `den-wiki <operation>`: every MCP operation from the command line
   ([CLI](docs/cli.md)).
 - `den-wiki lint`: checks a content directory against the contract.
+- [`deploy/`](deploy): the den-prox-mini container, units, firewall and Caddy
+  site at `https://wiki.dragonden.stream` ([deployment](docs/deployment.md)).
 
 ```bash
 CGO_ENABLED=0 go build -trimpath -o ~/.local/bin/den-wiki ./cmd/den-wiki
