@@ -1,5 +1,5 @@
-// Command den-wiki is the den-wiki CLI and service: local content lint and
-// serve.
+// Command den-wiki is the den-wiki CLI and service: every registered
+// operation (see internal/cli), local content lint, and serve.
 package main
 
 import (
@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/FuzzySlipper/den-wiki/internal/cli"
 	"github.com/FuzzySlipper/den-wiki/internal/lint"
 )
 
@@ -25,17 +26,10 @@ func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
-const usage = `den-wiki: tools for the den-wiki research knowledge base.
-
-Usage:
-  den-wiki lint [flags] <content-dir>   check content against the content contract
-  den-wiki serve --config <file>        run the den-wiki service (MCP facade and ledger)
-  den-wiki help                         show this help
-`
-
 func run(args []string, stdout, stderr io.Writer) int {
+	env := cli.Env{Stdin: os.Stdin, Stdout: stdout, Stderr: stderr}
 	if len(args) == 0 {
-		fmt.Fprint(stderr, usage)
+		cli.Run(nil, cli.Env{Stdout: stderr, Stderr: stderr})
 		return exitUsage
 	}
 	switch args[0] {
@@ -43,12 +37,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runLint(args[1:], stdout, stderr)
 	case "serve":
 		return runServe(args[1:], stderr)
-	case "help", "-h", "--help":
-		fmt.Fprint(stdout, usage)
-		return exitOK
+	case "-h", "--help":
+		return cli.Run(nil, env)
 	}
-	fmt.Fprintf(stderr, "den-wiki: unknown operation %q\n\n%s", args[0], usage)
-	return exitUsage
+	return cli.Run(args, env)
 }
 
 type lintReport struct {

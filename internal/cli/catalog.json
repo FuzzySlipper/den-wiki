@@ -1,0 +1,735 @@
+{
+  "revision": "catalog-ce5da66ba361",
+  "operations": [
+    {
+      "name": "job_abandon",
+      "description": "Close a job without a result. While claimed, only the lease holder can abandon it.",
+      "risk": "destructive",
+      "tier": "long_tail",
+      "backend": "ledger",
+      "needs_agent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Job id.",
+            "type": "integer"
+          },
+          "lease_token": {
+            "description": "Required while the job is claimed.",
+            "type": "string"
+          },
+          "note": {
+            "description": "Why the job is abandoned.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "job_claim",
+      "description": "Claim an open research job. Exactly one concurrent claimer wins; others get claim_conflict. Keep the returned lease_token: renew, release and finish need it.",
+      "risk": "write",
+      "tier": "default",
+      "backend": "ledger",
+      "needs_agent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "harness": {
+            "description": "Harness you run in, e.g. claude-code, codex, dsh, hermes.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Job id.",
+            "type": "integer"
+          },
+          "lease_seconds": {
+            "description": "Lease length; default 1800. Renew before it ends.",
+            "maximum": 86400,
+            "minimum": 60,
+            "type": "integer"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "job_create",
+      "description": "Queue a research job. You become its requester. Returns the job; claim it with job_claim to work on it.",
+      "risk": "write",
+      "tier": "default",
+      "backend": "ledger",
+      "needs_agent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "parent_id": {
+            "description": "Parent job id.",
+            "type": "integer"
+          },
+          "priority": {
+            "description": "1 (highest) to 5; default 3.",
+            "maximum": 5,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "question": {
+            "description": "What to research.",
+            "type": "string"
+          },
+          "scope_notes": {
+            "description": "What is in and out of scope.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "type": "object"
+      },
+      "examples": [
+        {
+          "description": "Queue a question",
+          "arguments": {
+            "priority": 2,
+            "question": "How do LLM agents keep durable memory?"
+          }
+        }
+      ]
+    },
+    {
+      "name": "job_edit",
+      "description": "Change a job's question, scope notes, priority or parent while it is open or claimed.",
+      "risk": "write",
+      "tier": "long_tail",
+      "backend": "ledger",
+      "needs_agent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "clear_parent": {
+            "description": "Remove the parent link.",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Job id.",
+            "type": "integer"
+          },
+          "note": {
+            "type": "string"
+          },
+          "parent_id": {
+            "type": "integer"
+          },
+          "priority": {
+            "maximum": 5,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "question": {
+            "type": "string"
+          },
+          "scope_notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "job_events",
+      "description": "A job's append-only event log, oldest first.",
+      "risk": "read",
+      "tier": "long_tail",
+      "backend": "ledger",
+      "needs_agent": false,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Job id.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "job_finish",
+      "description": "Finish your claimed job. trail_slug must name the run's trail page (trails/<slug>.md), which must already exist.",
+      "risk": "write",
+      "tier": "default",
+      "backend": "ledger",
+      "needs_agent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Job id.",
+            "type": "integer"
+          },
+          "lease_token": {
+            "description": "Token returned by job_claim.",
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "output_pages": {
+            "description": "wiki/*.md paths created or edited.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "trail_slug": {
+            "description": "Slug of the run's trail page, trails/<slug>.md; write it first.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "lease_token",
+          "trail_slug"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "job_get",
+      "description": "Get one research job.",
+      "risk": "read",
+      "tier": "long_tail",
+      "backend": "ledger",
+      "needs_agent": false,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Job id.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "job_list",
+      "description": "List research jobs, highest priority first, one bounded page at a time. next_offset is null on the last page.",
+      "risk": "read",
+      "tier": "default",
+      "backend": "ledger",
+      "needs_agent": false,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "assignee": {
+            "description": "Only jobs claimed by this agent.",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Page size; default 50.",
+            "maximum": 200,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "max_priority": {
+            "description": "Only jobs at this priority or higher (lower number).",
+            "maximum": 5,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "description": "Start offset; pass the previous page's next_offset.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "parent_id": {
+            "description": "Only children of this job.",
+            "type": "integer"
+          },
+          "requested_by": {
+            "description": "Only jobs requested by this agent.",
+            "type": "string"
+          },
+          "statuses": {
+            "description": "Any of open, claimed, done, abandoned.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "examples": [
+        {
+          "description": "Open jobs to pick from",
+          "arguments": {
+            "limit": 10,
+            "statuses": [
+              "open"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "job_release",
+      "description": "Give a claimed job back to the queue unfinished.",
+      "risk": "write",
+      "tier": "long_tail",
+      "backend": "ledger",
+      "needs_agent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Job id.",
+            "type": "integer"
+          },
+          "lease_token": {
+            "description": "Token returned by job_claim.",
+            "type": "string"
+          },
+          "note": {
+            "description": "Why you are giving the job back.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "lease_token"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "job_renew",
+      "description": "Extend your lease on a claimed job. A lapsed lease gives lease_expired; claim the job again.",
+      "risk": "write",
+      "tier": "long_tail",
+      "backend": "ledger",
+      "needs_agent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Job id.",
+            "type": "integer"
+          },
+          "lease_seconds": {
+            "description": "New lease length from now; default 1800.",
+            "maximum": 86400,
+            "minimum": 60,
+            "type": "integer"
+          },
+          "lease_token": {
+            "description": "Token returned by job_claim.",
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "lease_token"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "wiki_audit",
+      "description": "OpenKnowledge's validation of markdown, frontmatter schemas, OKF rules and internal links. For the full content contract use wiki_lint.",
+      "risk": "read",
+      "tier": "long_tail",
+      "backend": "openknowledge",
+      "needs_agent": false,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "Folder or document to audit; default the whole content repo.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "name": "wiki_delete",
+      "description": "Delete a document. Inbound links become dead links, so merge into the page that replaces it first. den-wiki commits the deletion with you as author.",
+      "risk": "destructive",
+      "tier": "long_tail",
+      "backend": "openknowledge",
+      "needs_agent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "Page to delete. Inbound links become dead links; merge into a successor first.",
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "trail": {
+            "description": "Slug of the trail recording why.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "trail"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "wiki_edit",
+      "description": "Edit a page, source or trail in place: replace exact body text (find, replace) or merge-patch its frontmatter, not both. den-wiki commits the change with you as author and (trail:<slug>).",
+      "risk": "write",
+      "tier": "default",
+      "backend": "openknowledge",
+      "needs_agent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "find": {
+            "description": "Exact body text to replace. Give find and replace, or frontmatter.",
+            "type": "string"
+          },
+          "frontmatter": {
+            "description": "Merge-patch of frontmatter keys; null deletes a key.",
+            "type": "object"
+          },
+          "occurrence": {
+            "description": "Which match of find (default 1).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "path": {
+            "description": "Page, source or trail to edit.",
+            "type": "string"
+          },
+          "replace": {
+            "type": "string"
+          },
+          "summary": {
+            "description": "One line saying what changed.",
+            "type": "string"
+          },
+          "trail": {
+            "description": "Slug of your run's trail page.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "trail"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "wiki_history",
+      "description": "Edit history of a page, source or trail from OpenKnowledge, newest first, attributed per agent.",
+      "risk": "read",
+      "tier": "long_tail",
+      "backend": "openknowledge",
+      "needs_agent": false,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "author": {
+            "description": "Only entries by this author.",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Default 50.",
+            "maximum": 200,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "path": {
+            "description": "Page, source or trail.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "wiki_links",
+      "description": "Link-graph views: backlinks, forward, dead, orphans, hubs, suggest. Templates, tooling and generated indexes are filtered out.",
+      "risk": "read",
+      "tier": "long_tail",
+      "backend": "openknowledge",
+      "needs_agent": false,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "kinds": {
+            "description": "Any of backlinks, forward, dead, orphans, hubs, suggest.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "limit": {
+            "description": "Maximum hubs; default 20.",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "path": {
+            "description": "Page for backlinks, forward and suggest, e.g. wiki/agent-memory.md.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kinds"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "wiki_lint",
+      "description": "Check the content repository against the den-wiki content contract. Findings are reports, not blocks; each has a stable code (see wiki_lint_rules).",
+      "risk": "read",
+      "tier": "long_tail",
+      "backend": "lint",
+      "needs_agent": false,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "commits": {
+            "description": "Also check the commits in this git range of the content repo, e.g. origin/main..HEAD.",
+            "type": "string"
+          },
+          "min_severity": {
+            "description": "Only return findings at or above this severity; default info.",
+            "enum": [
+              "info",
+              "warning",
+              "error"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "name": "wiki_lint_rules",
+      "description": "Every lint finding code with its severity and meaning.",
+      "risk": "read",
+      "tier": "long_tail",
+      "backend": "lint",
+      "needs_agent": false,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    },
+    {
+      "name": "wiki_list",
+      "description": "List a folder: its documents and subfolders, its templates, and its zone's rules.",
+      "risk": "read",
+      "tier": "long_tail",
+      "backend": "openknowledge",
+      "needs_agent": false,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "folder": {
+            "description": "Folder to list, e.g. wiki or wiki/ai.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "folder"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "wiki_move",
+      "description": "Rename or move a document; inline links to it are rewritten. den-wiki commits the move and every rewritten document together.",
+      "risk": "write",
+      "tier": "long_tail",
+      "backend": "openknowledge",
+      "needs_agent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "description": "Current .md path.",
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "to": {
+            "description": "New .md path. Inline links to it are rewritten.",
+            "type": "string"
+          },
+          "trail": {
+            "description": "Slug of your run's trail page.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "trail"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "wiki_read",
+      "description": "Read a page, source or trail: its content, frontmatter, backlinks, outgoing links, edit history, git history (with trail-tagged subjects) and its zone's rules.",
+      "risk": "read",
+      "tier": "default",
+      "backend": "openknowledge",
+      "needs_agent": false,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "Content-root-relative page, source or trail, e.g. wiki/agent-memory.md.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "examples": [
+        {
+          "description": "Read a page with its links",
+          "arguments": {
+            "path": "wiki/agent-memory.md"
+          }
+        }
+      ]
+    },
+    {
+      "name": "wiki_search",
+      "description": "Ranked search over titles, paths and page bodies. Search before writing: one concept, one page.",
+      "risk": "read",
+      "tier": "default",
+      "backend": "openknowledge",
+      "needs_agent": false,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "description": "Default 20.",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "description": "Title, path or body terms.",
+            "type": "string"
+          },
+          "titles_only": {
+            "description": "Match titles, paths and folders only (faster).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "examples": [
+        {
+          "description": "Find pages about agent memory",
+          "arguments": {
+            "limit": 10,
+            "query": "agent memory"
+          }
+        }
+      ]
+    },
+    {
+      "name": "wiki_write",
+      "description": "Create or replace a page, source or trail with the whole file (frontmatter included). den-wiki commits it with you as author and (trail:<slug>) in the subject. Search first: one concept, one page.",
+      "risk": "write",
+      "tier": "default",
+      "backend": "openknowledge",
+      "needs_agent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "description": "The whole file, frontmatter block included.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Content-root-relative .md path to create or replace.",
+            "type": "string"
+          },
+          "summary": {
+            "description": "One line saying what changed; default \"Write <path>\".",
+            "type": "string"
+          },
+          "trail": {
+            "description": "Slug of your run's trail page; it goes in the commit subject as (trail:<slug>).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content",
+          "path",
+          "trail"
+        ],
+        "type": "object"
+      },
+      "examples": [
+        {
+          "description": "Write a page during a research run",
+          "arguments": {
+            "content": "---\ntype: concept\ntitle: Agent memory\ntags: [ai]\ncuration: unreviewed\nupdated: 2026-10-29\n---\n\n# Agent memory\n",
+            "path": "wiki/agent-memory.md",
+            "summary": "Add agent memory page",
+            "trail": "agent-memory-research-2026-10-28"
+          }
+        }
+      ]
+    }
+  ]
+}

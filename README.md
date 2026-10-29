@@ -10,12 +10,19 @@ OpenKnowledge.
   and `taxonomy.yml`.
 - [`templates/content/`](templates/content): the skeleton a new content
   repository starts from.
+- `den-wiki serve`: the MCP facade over OpenKnowledge and the research ledger
+  ([facade](docs/facade.md), [ledger](docs/ledger.md)).
+- `den-wiki <operation>`: every MCP operation from the command line
+  ([CLI](docs/cli.md)).
 - `den-wiki lint`: checks a content directory against the contract.
 
 ```bash
-go run ./cmd/den-wiki lint --format text path/to/den-wiki-content
-go run ./cmd/den-wiki lint --commits origin/main..HEAD --fail-on error path/to/den-wiki-content
-go run ./cmd/den-wiki lint --list-rules --format text
+CGO_ENABLED=0 go build -trimpath -o ~/.local/bin/den-wiki ./cmd/den-wiki
+den-wiki serve --config configs/den-wiki.example.yml
+den-wiki search memory
+den-wiki wiki_search --query "agent memory" --agent me --human
+den-wiki lint --format text path/to/den-wiki-content
 ```
 
-Verify with `scripts/verify.sh`.
+Verify with `scripts/verify.sh`; run the OpenKnowledge integration tests with
+`scripts/ok-integration.sh <dir> --isolate-home`.

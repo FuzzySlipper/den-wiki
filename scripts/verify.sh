@@ -23,5 +23,14 @@ go vet ./...
 echo "== go test"
 go test ./...
 
+echo "== static binary builds"
+CGO_ENABLED=0 go build -trimpath -o /dev/null ./cmd/den-wiki
+
+echo "== CLI catalog matches the registry"
+go run ./cmd/den-wiki-catalog -output /dev/stdout | cmp -s - internal/cli/catalog.json || {
+	echo "internal/cli/catalog.json is stale; run go generate ./internal/cli" >&2
+	exit 1
+}
+
 echo "== content template lints clean"
 go run ./cmd/den-wiki lint --format text --fail-on info templates/content
