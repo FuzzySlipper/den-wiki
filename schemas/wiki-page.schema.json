@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://den-wiki.local/schemas/wiki-page.schema.json",
+  "title": "den-wiki wiki/ page frontmatter",
+  "description": "Frontmatter of a page under wiki/: one page per concept, entity, comparison, synthesis or hub. Unknown keys are allowed so tools such as OpenKnowledge can add their own; lint flags relabelling keys separately.",
+  "type": "object",
+  "required": ["type", "title", "tags", "curation", "updated"],
+  "properties": {
+    "type": {
+      "description": "Page type. Must be one of the types listed in taxonomy.yml (seed: concept, entity, comparison, synthesis, hub).",
+      "$ref": "#/$defs/slug"
+    },
+    "title": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "aliases": {
+      "description": "Alternative names. Search resolves aliases so a new name lands on the existing page.",
+      "type": "array",
+      "items": { "type": "string", "pattern": "\\S" },
+      "uniqueItems": true
+    },
+    "tags": {
+      "description": "Tags from taxonomy.yml only.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/slug" },
+      "uniqueItems": true
+    },
+    "sources": {
+      "description": "Content-root-relative paths of sources/ files this page draws on.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/sourcePath" },
+      "uniqueItems": true
+    },
+    "trails": {
+      "description": "Slugs of the trails (trails/<slug>.md) that changed this page.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/slug" },
+      "uniqueItems": true
+    },
+    "curation": {
+      "enum": ["unreviewed", "curated"]
+    },
+    "confidence": {
+      "enum": ["high", "medium", "low"]
+    },
+    "contradicts": {
+      "description": "Content-root-relative paths of wiki/ pages with conflicting claims.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/wikiPath" },
+      "uniqueItems": true
+    },
+    "volatility": {
+      "description": "Drives staleness scoring. Missing means warm.",
+      "enum": ["hot", "warm", "cold"]
+    },
+    "verified": {
+      "description": "Date of the last human confirmation. Only a human sets this.",
+      "$ref": "#/$defs/date"
+    },
+    "updated": {
+      "description": "Date of the last change.",
+      "$ref": "#/$defs/date"
+    }
+  },
+  "$defs": {
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}([T ][0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})?)?$"
+    },
+    "sourcePath": {
+      "type": "string",
+      "pattern": "^sources/[^\\s]+$"
+    },
+    "wikiPath": {
+      "type": "string",
+      "pattern": "^wiki/[^\\s]+\\.md$"
+    }
+  }
+}

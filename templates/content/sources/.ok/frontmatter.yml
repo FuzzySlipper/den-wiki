@@ -1,0 +1,11 @@
+zone: sources
+description: Captured source material - articles, papers, transcripts, repo manifests.
+mutability: Never edited. A re-fetch is a new file whose supersedes names the earlier capture.
+rules:
+  - Store the capture as Markdown under a frontmatter block that follows schemas/source.schema.json.
+  - sha256 is the lowercase hex SHA-256 of the body - every byte after the line that closes the frontmatter.
+  - captured_by_trail names the trail of the run that captured the source.
+  - Filenames may carry dates and IDs; subfolders are allowed.
+  - index.md files are generated. Do not edit them.
+template: source
+contract: FuzzySlipper/den-wiki docs/content-contract.md

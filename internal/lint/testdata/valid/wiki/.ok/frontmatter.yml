@@ -1,0 +1,14 @@
+zone: wiki
+description: One page per concept, entity, comparison, synthesis or hub - the current understanding.
+mutability: Edited in place, merged and deleted freely. git keeps every version.
+rules:
+  - One concept, one page. Search titles and aliases before creating a page; add a new name as an alias instead of a new page.
+  - Filenames are lowercase slugs that say what the page is about. No dates, SHAs, -v2, -final, -new, -updated or -old.
+  - Frontmatter follows schemas/wiki-page.schema.json. Tags and type come from taxonomy.yml; add new tags there first.
+  - New pages start as curation unreviewed. Only a human sets verified.
+  - Cite claims with footnotes that link to a sources/ file and quote the supporting span in double quotes.
+  - Replace a superseded page by merging it into its successor or deleting it. Never rename it -old or label it deprecated.
+  - Every commit that changes wiki/ carries (trail:<slug>) in its subject.
+  - index.md files are generated. Do not edit them.
+template: page
+contract: FuzzySlipper/den-wiki docs/content-contract.md

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://den-wiki.local/schemas/source.schema.json",
+  "title": "den-wiki sources/ frontmatter",
+  "description": "Frontmatter of a captured source under sources/. Sources are never edited; a re-fetch is a new file that names the old one in supersedes.",
+  "type": "object",
+  "required": ["source_url", "captured", "sha256", "captured_by_trail"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "source_url": {
+      "description": "Where the material was captured from.",
+      "type": "string",
+      "format": "uri"
+    },
+    "captured": {
+      "description": "When the material was captured.",
+      "$ref": "#/$defs/date"
+    },
+    "sha256": {
+      "description": "Lowercase hex SHA-256 of the body: every byte after the line that closes the frontmatter.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "captured_by_trail": {
+      "description": "Slug of the trail (trails/<slug>.md) whose run captured this source.",
+      "$ref": "#/$defs/slug"
+    },
+    "supersedes": {
+      "description": "Content-root-relative path of the earlier capture this one replaces.",
+      "type": "string",
+      "pattern": "^sources/[^\\s]+$"
+    }
+  },
+  "$defs": {
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}([T ][0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})?)?$"
+    }
+  }
+}

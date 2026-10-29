@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://den-wiki.local/schemas/trail.schema.json",
+  "title": "den-wiki trails/ frontmatter",
+  "description": "Frontmatter of a trail page: one research run or curation run. Trails are append-only.",
+  "type": "object",
+  "required": ["question", "started", "agent", "harness"],
+  "properties": {
+    "job": {
+      "description": "Research ledger job id. Absent for runs that were not queued as a ledger job.",
+      "type": ["string", "integer"]
+    },
+    "question": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "started": {
+      "$ref": "#/$defs/date"
+    },
+    "finished": {
+      "description": "Absent while the run is in progress.",
+      "$ref": "#/$defs/date"
+    },
+    "agent": {
+      "description": "Identity of the agent that ran the trail.",
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "harness": {
+      "description": "Harness the agent ran in, for example claude-code, codex, dsh or hermes.",
+      "type": "string",
+      "pattern": "\\S"
+    }
+  },
+  "$defs": {
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}([T ][0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})?)?$"
+    }
+  }
+}

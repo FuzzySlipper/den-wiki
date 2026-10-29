@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://den-wiki.local/schemas/taxonomy.schema.json",
+  "title": "den-wiki taxonomy.yml",
+  "description": "The content repo's tag taxonomy and page types. A page may only use tags and types listed here; new tags are added here first.",
+  "type": "object",
+  "required": [
+    "version",
+    "types",
+    "tags"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "description": "Taxonomy file format version.",
+      "const": 1
+    },
+    "types": {
+      "description": "Allowed values of a wiki/ page's type field. parent is not used for types.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    },
+    "tags": {
+      "description": "Allowed tags. A tag may name a parent tag to form a hierarchy.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    }
+  },
+  "$defs": {
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "entry": {
+      "type": "object",
+      "required": [
+        "name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/slug"
+        },
+        "description": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "parent": {
+          "$ref": "#/$defs/slug"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

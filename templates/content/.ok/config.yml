@@ -1,0 +1,17 @@
+# OpenKnowledge project config for den-wiki-content.
+# The schemas in .ok/schemas/ are copies of FuzzySlipper/den-wiki schemas/;
+# den-wiki's tests keep them identical. den-wiki lint is the full contract check.
+contentRules:
+  frontmatter:
+    enabled: true
+    schemas:
+      - appliesTo: "wiki/**/*.md"
+        file: .ok/schemas/wiki-page.schema.json
+      - appliesTo: "sources/**/*.md"
+        file: .ok/schemas/source.schema.json
+      - appliesTo: "trails/*.md"
+        file: .ok/schemas/trail.schema.json
+  okf:
+    enabled: true
+    generate:
+      index: true

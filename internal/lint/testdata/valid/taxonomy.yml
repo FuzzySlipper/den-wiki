@@ -1,0 +1,28 @@
+# den-wiki tag taxonomy. Pages use only the types and tags listed here; add a
+# tag here before using it. Format: den-wiki schemas/taxonomy.schema.json.
+version: 1
+
+types:
+  - name: concept
+    description: An idea, technique or pattern, explained on its own terms.
+  - name: entity
+    description: A specific thing - a project, tool, organisation, paper or person.
+  - name: comparison
+    description: Two or more concepts or entities set side by side.
+  - name: synthesis
+    description: A conclusion drawn across several pages and sources.
+  - name: hub
+    description: A map page that links the pages of one area.
+
+tags:
+  - name: meta
+    description: Pages about den-wiki itself - its contract, curation and tooling.
+  - name: software
+    description: Software, libraries, services and how they are built.
+  - name: ai
+    description: AI models, agents and their tooling.
+    parent: software
+  - name: games
+    description: Game design, game engines and game tooling.
+  - name: research-method
+    description: How to research - search methods, source assessment, provenance.
