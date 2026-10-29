@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -18,9 +19,14 @@ type stored struct {
 	LeaseToken string
 }
 
-// mutation is what a transition decides: the job's next state and the events
-// that record the change. Returning an error rolls the transaction back.
-type mutation func(cur stored) (next stored, events []Event, err error)
+// lookup reads another job inside the mutation's transaction, so what it
+// sees cannot change before the mutation commits.
+type lookup func(id int64) (stored, error)
+
+// mutation is what a transition decides: the job's next state and the event
+// that records it (the store fills the event's data). Returning an error
+// rolls the transaction back.
+type mutation func(cur stored, get lookup) (next stored, ev Event, err error)
 
 // Store persists jobs and events. Every write runs in one transaction, and
 // writes are serialised, so a mutation sees the current row and nothing else
@@ -32,7 +38,7 @@ type Store interface {
 	List(ctx context.Context, q ListQuery) ([]Job, error)
 	Events(ctx context.Context, id int64) ([]Event, error)
 	// Update expires the job's lease if it ended at or before now, then
-	// applies fn to the current row, all in one transaction.
+	// applies fn to the current row in one write transaction.
 	Update(ctx context.Context, id int64, now time.Time, fn mutation) (stored, error)
 	// ExpireLeases returns every job whose lease ended at or before now to
 	// open and records an expired event for each.
@@ -226,11 +232,7 @@ func (s *SQLiteStore) Create(ctx context.Context, j stored, ev Event) (stored, e
 		return stored{}, err
 	}
 	ev.JobID = j.ID
-	if ev.Data == nil {
-		ev.Data = map[string]any{}
-	}
-	ev.Data["id"] = j.ID
-	if err := insertEvent(ctx, tx, ev); err != nil {
+	if err := insertEvent(ctx, tx, ev, nil, j.Job); err != nil {
 		return stored{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -239,10 +241,14 @@ func (s *SQLiteStore) Create(ctx context.Context, j stored, ev Event) (stored, e
 	return j, nil
 }
 
-func insertEvent(ctx context.Context, tx *sql.Tx, ev Event) error {
-	data := ev.Data
-	if data == nil {
-		data = map[string]any{}
+// insertEvent appends ev with the public job fields the change set as its
+// data: every field for a created job (before nil), otherwise each field
+// that differs, null when cleared. Replaying a job's event data in order
+// therefore rebuilds the job exactly, timestamps included.
+func insertEvent(ctx context.Context, tx *sql.Tx, ev Event, before *Job, after Job) error {
+	data, err := changedFields(before, after)
+	if err != nil {
+		return err
 	}
 	raw, err := json.Marshal(data)
 	if err != nil {
@@ -355,17 +361,22 @@ func (s *SQLiteStore) Update(ctx context.Context, id int64, now time.Time, fn mu
 	if err != nil {
 		return stored{}, err
 	}
-	next, events, err := fn(cur)
+	get := func(other int64) (stored, error) {
+		j, err := scanJob(tx.QueryRowContext(ctx, `SELECT `+jobColumns+` FROM jobs WHERE id = ?`, other))
+		if errors.Is(err, sql.ErrNoRows) {
+			return stored{}, notFound(other)
+		}
+		return j, err
+	}
+	next, ev, err := fn(cur, get)
 	if err != nil {
 		return stored{}, err
 	}
 	if err := writeJob(ctx, tx, next); err != nil {
 		return stored{}, err
 	}
-	for _, ev := range events {
-		if err := insertEvent(ctx, tx, ev); err != nil {
-			return stored{}, err
-		}
+	if err := insertEvent(ctx, tx, ev, &cur.Job, next.Job); err != nil {
+		return stored{}, err
 	}
 	if err := tx.Commit(); err != nil {
 		return stored{}, fmt.Errorf("commit update: %w", err)
@@ -393,7 +404,7 @@ func (s *SQLiteStore) expireOne(ctx context.Context, id int64, now time.Time) er
 	if err := writeJob(ctx, tx, next); err != nil {
 		return err
 	}
-	if err := insertEvent(ctx, tx, ev); err != nil {
+	if err := insertEvent(ctx, tx, ev, &cur.Job, next.Job); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -444,7 +455,7 @@ func (s *SQLiteStore) ExpireLeases(ctx context.Context, now time.Time) (int, err
 		if err := writeJob(ctx, tx, next); err != nil {
 			return 0, err
 		}
-		if err := insertEvent(ctx, tx, ev); err != nil {
+		if err := insertEvent(ctx, tx, ev, &j.Job, next.Job); err != nil {
 			return 0, err
 		}
 	}
@@ -452,4 +463,45 @@ func (s *SQLiteStore) ExpireLeases(ctx context.Context, now time.Time) (int, err
 		return 0, fmt.Errorf("commit expiry: %w", err)
 	}
 	return len(due), nil
+}
+
+// changedFields returns after's public fields (as JSON values) that differ
+// from before's, with null for a field after no longer has. A nil before
+// returns every field.
+func changedFields(before *Job, after Job) (map[string]any, error) {
+	a, err := jobFields(after)
+	if err != nil {
+		return nil, err
+	}
+	if before == nil {
+		return a, nil
+	}
+	b, err := jobFields(*before)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]any{}
+	for k, v := range a {
+		if !reflect.DeepEqual(b[k], v) {
+			out[k] = v
+		}
+	}
+	for k := range b {
+		if _, ok := a[k]; !ok {
+			out[k] = nil
+		}
+	}
+	return out, nil
+}
+
+func jobFields(j Job) (map[string]any, error) {
+	raw, err := json.Marshal(j)
+	if err != nil {
+		return nil, fmt.Errorf("encode job: %w", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return nil, fmt.Errorf("encode job: %w", err)
+	}
+	return m, nil
 }

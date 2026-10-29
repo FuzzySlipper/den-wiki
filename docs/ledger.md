@@ -17,7 +17,7 @@ Storage is SQLite through the pure-Go `modernc.org/sqlite` driver (no CGO).
 | `requested_by` | Who asked |
 | `assignee`, `harness` | Current claimer and its harness (empty unless claimed) |
 | `status` | `open`, `claimed`, `done` or `abandoned` |
-| `parent_id` | Optional parent job; cycles are rejected |
+| `parent_id` | Optional parent job; cycles are rejected, checked inside the write transaction |
 | `priority` | 1 (highest) to 5; default 3 |
 | `trail_slug` | Set by `finish`; names `trails/<slug>.md` |
 | `output_pages` | `wiki/*.md` paths created or edited |
@@ -46,8 +46,13 @@ the job to `open`; `abandoned` is also reachable from `open`.
 
 Every change appends one event: `created`, `claimed`, `renewed`, `released`,
 `expired`, `finished`, `abandoned` or `edited`, with `actor`, optional `note`,
-time, and `data` holding the fields the event set. Replaying a job's events in
-order reconstructs it. The table rejects updates and deletes.
+time, and `data`. The store derives `data` from the change itself: a `created`
+event holds every public field of the job, and every later event holds each
+field that changed, as it appears in the job's JSON, with `null` for a field
+that was cleared (for example `lease_expires_at` on finish, abandon, release
+or expiry). Timestamps (`updated_at`, `claimed_at`, `finished_at`) are fields
+like any other. Merging the events' `data` in order therefore rebuilds the
+whole job. The table rejects updates and deletes.
 
 ## Errors
 

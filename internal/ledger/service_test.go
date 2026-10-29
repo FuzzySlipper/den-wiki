@@ -451,22 +451,102 @@ func TestEventLogReconstructsHistory(t *testing.T) {
 		t.Fatalf("event kinds %v, want %v", kinds, wantKinds)
 	}
 
-	final, _ := s.Get(ctx, j.ID)
-	raw, _ := json.Marshal(final)
-	var job map[string]any
-	_ = json.Unmarshal(raw, &job)
-	state := replay(t, evs)
-	for _, field := range []string{"question", "scope_notes", "requested_by", "status", "priority", "assignee", "harness", "trail_slug", "parent_id"} {
-		want := fmt.Sprint(job[field])
-		if job[field] == nil {
-			want = fmt.Sprint(nil)
-		}
-		if got := fmt.Sprint(state[field]); got != want {
-			t.Errorf("replayed %s = %v, job has %v", field, state[field], job[field])
+	assertReplayMatches(t, s, j.ID)
+}
+
+// assertReplayMatches checks that replaying a job's event data in order
+// rebuilds the whole public job, timestamps included.
+func assertReplayMatches(t *testing.T, s *Service, id int64) {
+	t.Helper()
+	ctx := context.Background()
+	evs, err := s.Events(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	final, err := s.Get(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(replay(t, evs))
+	var rebuilt Job
+	if err := json.Unmarshal(raw, &rebuilt); err != nil {
+		t.Fatalf("decode replayed job: %v\n%s", err, raw)
+	}
+	got, _ := json.Marshal(rebuilt)
+	want, _ := json.Marshal(final)
+	if string(got) != string(want) {
+		t.Fatalf("replayed job\n %s\nstored job\n %s", got, want)
+	}
+}
+
+func TestEventLogReconstructsAbandonedClaim(t *testing.T) {
+	s, clock, _ := newTestService(t)
+	ctx := context.Background()
+	j := mustCreate(t, s, "Is this worth a run?")
+	clock.Advance(time.Second)
+	c, err := s.Claim(ctx, j.ID, ClaimRequest{Actor: "alice", LeaseSeconds: 60})
+	if err != nil {
+		t.Fatal(err)
+	}
+	clock.Advance(time.Second)
+	got, err := s.Abandon(ctx, j.ID, AbandonRequest{Actor: "alice", LeaseToken: c.LeaseToken})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.LeaseExpiresAt != nil || got.FinishedAt == nil {
+		t.Fatalf("abandoned job: %+v", got)
+	}
+	assertReplayMatches(t, s, j.ID)
+}
+
+// barrierStore holds every Update until n callers have arrived, so the
+// callers' pre-transaction work all happens before any of them writes.
+type barrierStore struct {
+	Store
+	arrive *sync.WaitGroup
+}
+
+func (b barrierStore) Update(ctx context.Context, id int64, now time.Time, fn mutation) (stored, error) {
+	b.arrive.Done()
+	b.arrive.Wait()
+	return b.Store.Update(ctx, id, now, fn)
+}
+
+func TestConcurrentReciprocalParentsCannotMakeACycle(t *testing.T) {
+	s, clock, path := newTestService(t)
+	ctx := context.Background()
+	a := mustCreate(t, s, "a")
+	b := mustCreate(t, s, "b")
+	// Two services on separate stores (separate SQLite connections) over one
+	// database, as two den-wiki processes would be.
+	var arrive sync.WaitGroup
+	arrive.Add(2)
+	s1 := NewService(barrierStore{openStore(t, path), &arrive}, clock.Now)
+	s2 := NewService(barrierStore{openStore(t, path), &arrive}, clock.Now)
+	errs := make([]error, 2)
+	var done sync.WaitGroup
+	done.Add(2)
+	go func() {
+		defer done.Done()
+		_, errs[0] = s1.Edit(ctx, a.ID, EditRequest{Actor: "alpha", ParentID: &b.ID})
+	}()
+	go func() {
+		defer done.Done()
+		_, errs[1] = s2.Edit(ctx, b.ID, EditRequest{Actor: "beta", ParentID: &a.ID})
+	}()
+	done.Wait()
+	if (errs[0] == nil) == (errs[1] == nil) {
+		t.Fatalf("want exactly one edit rejected, got %v and %v", errs[0], errs[1])
+	}
+	for _, err := range errs {
+		if err != nil {
+			wantCode(t, err, CodeValidationFailed)
 		}
 	}
-	if fmt.Sprint(state["output_pages"]) != fmt.Sprint(job["output_pages"]) {
-		t.Errorf("replayed output_pages = %v, job has %v", state["output_pages"], job["output_pages"])
+	ga, _ := s.Get(ctx, a.ID)
+	gb, _ := s.Get(ctx, b.ID)
+	if ga.ParentID != nil && gb.ParentID != nil {
+		t.Fatalf("cycle committed: a.parent=%d b.parent=%d", *ga.ParentID, *gb.ParentID)
 	}
 }
 

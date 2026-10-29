@@ -171,10 +171,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Job, error) {
 		ParentID: req.ParentID, Priority: priority, OutputPages: []string{},
 		CreatedAt: now, UpdatedAt: now,
 	}}
-	ev := Event{Kind: EventCreated, Actor: by, At: now, Data: map[string]any{
-		"question": question, "scope_notes": scope, "requested_by": by, "status": StatusOpen,
-		"parent_id": req.ParentID, "priority": priority,
-	}}
+	ev := Event{Kind: EventCreated, Actor: by, At: now}
 	created, err := s.store.Create(ctx, j, ev)
 	return created.Job, err
 }
@@ -259,22 +256,20 @@ func (s *Service) Claim(ctx context.Context, id int64, req ClaimRequest) (Claim,
 	}
 	now := s.now()
 	token := s.newToken()
-	j, err := s.store.Update(ctx, id, now, func(cur stored) (stored, []Event, error) {
+	j, err := s.store.Update(ctx, id, now, func(cur stored, get lookup) (stored, Event, error) {
 		switch cur.Status {
 		case StatusClaimed:
-			return stored{}, nil, claimConflict("job %d is already claimed by %s until %s", id, cur.Assignee, cur.LeaseExpiresAt.Format(time.RFC3339))
+			return stored{}, Event{}, claimConflict("job %d is already claimed by %s until %s", id, cur.Assignee, cur.LeaseExpiresAt.Format(time.RFC3339))
 		case StatusOpen:
 		default:
-			return stored{}, nil, invalidTransition("job %d is %s and cannot be claimed", id, cur.Status)
+			return stored{}, Event{}, invalidTransition("job %d is %s and cannot be claimed", id, cur.Status)
 		}
 		next := cur
 		expires := now.Add(lease)
 		next.Status, next.Assignee, next.Harness = StatusClaimed, who, harness
 		next.LeaseToken, next.LeaseExpiresAt = token, &expires
 		next.ClaimedAt, next.UpdatedAt = timePtr(now), now
-		return next, []Event{{JobID: id, Kind: EventClaimed, Actor: who, Note: strings.TrimSpace(req.Note), At: now, Data: map[string]any{
-			"status": StatusClaimed, "assignee": who, "harness": harness, "lease_expires_at": formatTime(expires),
-		}}}, nil
+		return next, Event{JobID: id, Kind: EventClaimed, Actor: who, Note: strings.TrimSpace(req.Note), At: now}, nil
 	})
 	if err != nil {
 		return Claim{}, err
@@ -311,16 +306,14 @@ func (s *Service) Renew(ctx context.Context, id int64, req RenewRequest) (Job, e
 		return Job{}, err
 	}
 	now := s.now()
-	j, err := s.store.Update(ctx, id, now, func(cur stored) (stored, []Event, error) {
+	j, err := s.store.Update(ctx, id, now, func(cur stored, get lookup) (stored, Event, error) {
 		if err := holder(id, cur, req.LeaseToken); err != nil {
-			return stored{}, nil, err
+			return stored{}, Event{}, err
 		}
 		next := cur
 		expires := now.Add(lease)
 		next.LeaseExpiresAt, next.UpdatedAt = &expires, now
-		return next, []Event{{JobID: id, Kind: EventRenewed, Actor: who, Note: strings.TrimSpace(req.Note), At: now, Data: map[string]any{
-			"lease_expires_at": formatTime(expires),
-		}}}, nil
+		return next, Event{JobID: id, Kind: EventRenewed, Actor: who, Note: strings.TrimSpace(req.Note), At: now}, nil
 	})
 	return j.Job, err
 }
@@ -332,13 +325,13 @@ func (s *Service) Release(ctx context.Context, id int64, req ReleaseRequest) (Jo
 		return Job{}, err
 	}
 	now := s.now()
-	j, err := s.store.Update(ctx, id, now, func(cur stored) (stored, []Event, error) {
+	j, err := s.store.Update(ctx, id, now, func(cur stored, get lookup) (stored, Event, error) {
 		if err := holder(id, cur, req.LeaseToken); err != nil {
-			return stored{}, nil, err
+			return stored{}, Event{}, err
 		}
 		next := reopen(cur, now)
 		next.LeaseToken = ""
-		return next, []Event{{JobID: id, Kind: EventReleased, Actor: who, Note: strings.TrimSpace(req.Note), At: now, Data: reopenedData()}}, nil
+		return next, Event{JobID: id, Kind: EventReleased, Actor: who, Note: strings.TrimSpace(req.Note), At: now}, nil
 	})
 	return j.Job, err
 }
@@ -368,16 +361,14 @@ func (s *Service) Finish(ctx context.Context, id int64, req FinishRequest) (Job,
 		return Job{}, validationFailed(err)
 	}
 	now := s.now()
-	j, err := s.store.Update(ctx, id, now, func(cur stored) (stored, []Event, error) {
+	j, err := s.store.Update(ctx, id, now, func(cur stored, get lookup) (stored, Event, error) {
 		if err := holder(id, cur, req.LeaseToken); err != nil {
-			return stored{}, nil, err
+			return stored{}, Event{}, err
 		}
 		next := cur
 		next.Status, next.TrailSlug, next.OutputPages = StatusDone, slug, pages
 		next.LeaseExpiresAt, next.FinishedAt, next.UpdatedAt = nil, timePtr(now), now
-		return next, []Event{{JobID: id, Kind: EventFinished, Actor: who, Note: strings.TrimSpace(req.Note), At: now, Data: map[string]any{
-			"status": StatusDone, "trail_slug": slug, "output_pages": pages,
-		}}}, nil
+		return next, Event{JobID: id, Kind: EventFinished, Actor: who, Note: strings.TrimSpace(req.Note), At: now}, nil
 	})
 	return j.Job, err
 }
@@ -389,21 +380,19 @@ func (s *Service) Abandon(ctx context.Context, id int64, req AbandonRequest) (Jo
 		return Job{}, err
 	}
 	now := s.now()
-	j, err := s.store.Update(ctx, id, now, func(cur stored) (stored, []Event, error) {
+	j, err := s.store.Update(ctx, id, now, func(cur stored, get lookup) (stored, Event, error) {
 		switch {
 		case terminal(cur.Status):
-			return stored{}, nil, invalidTransition("job %d is already %s", id, cur.Status)
+			return stored{}, Event{}, invalidTransition("job %d is already %s", id, cur.Status)
 		case cur.Status == StatusClaimed:
 			if err := holder(id, cur, req.LeaseToken); err != nil {
-				return stored{}, nil, err
+				return stored{}, Event{}, err
 			}
 		}
 		next := cur
 		next.Status, next.LeaseExpiresAt = StatusAbandoned, nil
 		next.FinishedAt, next.UpdatedAt = timePtr(now), now
-		return next, []Event{{JobID: id, Kind: EventAbandoned, Actor: who, Note: strings.TrimSpace(req.Note), At: now, Data: map[string]any{
-			"status": StatusAbandoned,
-		}}}, nil
+		return next, Event{JobID: id, Kind: EventAbandoned, Actor: who, Note: strings.TrimSpace(req.Note), At: now}, nil
 	})
 	return j.Job, err
 }
@@ -442,19 +431,10 @@ func (s *Service) Edit(ctx context.Context, id int64, req EditRequest) (Job, err
 		}
 		changes["priority"] = *req.Priority
 	}
-	if req.ParentID != nil {
-		if err := s.checkParent(ctx, id, *req.ParentID); err != nil {
-			return Job{}, err
-		}
-		changes["parent_id"] = *req.ParentID
-	}
-	if req.ClearParent {
-		changes["parent_id"] = nil
-	}
 	now := s.now()
-	j, err := s.store.Update(ctx, id, now, func(cur stored) (stored, []Event, error) {
+	j, err := s.store.Update(ctx, id, now, func(cur stored, get lookup) (stored, Event, error) {
 		if terminal(cur.Status) {
-			return stored{}, nil, invalidTransition("job %d is %s and can no longer be edited", id, cur.Status)
+			return stored{}, Event{}, invalidTransition("job %d is %s and can no longer be edited", id, cur.Status)
 		}
 		next := cur
 		if v, ok := changes["question"].(string); ok {
@@ -467,6 +447,11 @@ func (s *Service) Edit(ctx context.Context, id int64, req EditRequest) (Job, err
 			next.Priority = v
 		}
 		if req.ParentID != nil {
+			// Checked inside the write transaction, so two concurrent edits
+			// cannot each pass and together make a cycle.
+			if err := checkParent(get, id, *req.ParentID); err != nil {
+				return stored{}, Event{}, err
+			}
 			p := *req.ParentID
 			next.ParentID = &p
 		}
@@ -474,20 +459,20 @@ func (s *Service) Edit(ctx context.Context, id int64, req EditRequest) (Job, err
 			next.ParentID = nil
 		}
 		next.UpdatedAt = now
-		return next, []Event{{JobID: id, Kind: EventEdited, Actor: who, Note: strings.TrimSpace(req.Note), At: now, Data: changes}}, nil
+		return next, Event{JobID: id, Kind: EventEdited, Actor: who, Note: strings.TrimSpace(req.Note), At: now}, nil
 	})
 	return j.Job, err
 }
 
 // checkParent rejects a parent that does not exist or would make a cycle.
-func (s *Service) checkParent(ctx context.Context, id, parent int64) error {
+func checkParent(get lookup, id, parent int64) error {
 	seen := map[int64]bool{id: true}
 	for cur := parent; ; {
 		if seen[cur] {
 			return validationFailed(fmt.Errorf("parent %d would make a cycle", parent))
 		}
 		seen[cur] = true
-		j, err := s.store.Get(ctx, cur)
+		j, err := get(cur)
 		if err != nil {
 			if CodeOf(err) == CodeNotFound {
 				return validationFailed(fmt.Errorf("parent job %d does not exist", cur))
@@ -514,15 +499,11 @@ func reopen(cur stored, now time.Time) stored {
 	return next
 }
 
-func reopenedData() map[string]any {
-	return map[string]any{"status": StatusOpen, "assignee": "", "harness": "", "lease_expires_at": nil}
-}
-
 // expire returns a lapsed claim to open. It keeps the lease token so the old
 // holder gets lease_expired, not a generic conflict, on its next call.
 func expire(cur stored, now time.Time) (stored, Event) {
 	return reopen(cur, now), Event{
 		JobID: cur.ID, Kind: EventExpired, Actor: "ledger", At: now,
-		Note: "lease held by " + cur.Assignee + " expired", Data: reopenedData(),
+		Note: "lease held by " + cur.Assignee + " expired",
 	}
 }
