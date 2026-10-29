@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
-	"path"
 	"regexp"
 	"strings"
 )
@@ -50,8 +49,13 @@ func (l *linter) checkCommits(rangeSpec string) ([]Finding, error) {
 			if !ok {
 				continue
 			}
+			if !isZoneDocument(rel) {
+				// Generated indexes, .ok/ rules and templates, and assets are
+				// not pages, sources or trails, so the zone rules skip them.
+				continue
+			}
 			switch {
-			case strings.HasPrefix(rel, zoneWiki+"/") && path.Base(rel) != indexName:
+			case strings.HasPrefix(rel, zoneWiki+"/"):
 				wikiPaths = append(wikiPaths, rel)
 			case strings.HasPrefix(rel, zoneSources+"/") && ch.status == "M":
 				out = append(out, commitFinding(codeCommitSourceEdit, rel, c, "commit modifies an existing source; capture a new file with supersedes instead"))
@@ -77,6 +81,32 @@ func (l *linter) checkCommits(rangeSpec string) ([]Finding, error) {
 		}
 	}
 	return out, nil
+}
+
+// isZoneDocument reports whether a content-root-relative path is a page,
+// source or trail: a .md file in a zone that is not a generated index.md and
+// is not inside a dot-folder (such as .ok/) or an OpenKnowledge .assets/
+// folder. It is the same set of files walkZone checks.
+func isZoneDocument(rel string) bool {
+	segs := strings.Split(rel, "/")
+	if len(segs) < 2 || !isZone(segs[0]) {
+		return false
+	}
+	name := segs[len(segs)-1]
+	if name == indexName || !strings.HasSuffix(name, ".md") {
+		return false
+	}
+	for _, s := range segs[1:] {
+		if strings.HasPrefix(s, ".") {
+			return false
+		}
+	}
+	for _, s := range segs[1 : len(segs)-1] {
+		if strings.HasSuffix(s, assetsSuffix) {
+			return false
+		}
+	}
+	return true
 }
 
 func commitFinding(code, rel string, c commit, msg string) Finding {

@@ -176,13 +176,18 @@ Add agent memory page (trail:agent-memory-research-2026-10-28)
 
 `<slug>` is the trail's filename without `.md`, and `trails/<slug>.md` must exist
 in that commit, so commit the trail with (or before) the pages it changed.
-Commits that only touch generated `index.md` files need no tag. Following
-provenance is then: a page's git history → each commit → its trail → the
-sources the trail accepted and rejected.
+Following provenance is then: a page's git history → each commit → its trail →
+the sources the trail accepted and rejected.
 
 `den-wiki lint --commits <range>` also reports commits in the range that modify
 an existing source (`commit.source_edited`) or remove lines from or delete a
 trail (`commit.trail_rewritten`).
+
+All commit checks look only at pages, sources and trails: the `.md` files lint
+checks in the tree. Generated `index.md` files, anything in a dot-folder such as
+`.ok/`, and OK `<doc>.assets/` folders are exempt in every zone, so regenerating
+indexes, editing zone rules or templates, or replacing an asset needs no trail
+tag and is not an edit to a source or trail.
 
 ## Delete or merge, never relabel
 

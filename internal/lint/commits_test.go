@@ -55,6 +55,9 @@ func TestCommitRange(t *testing.T) {
 	for _, subdir := range []string{"", "content"} {
 		t.Run("subdir="+subdir, func(t *testing.T) {
 			repo, root := newContentRepo(t, subdir)
+			write(t, root, "sources/index.md", "# sources\n\n- [survey](agent-memory-survey.md)\n")
+			write(t, root, "trails/index.md", "# trails\n\n- [run](agent-memory-research-2026-10-28.md)\n")
+			commitAll(t, repo, "Generate zone indexes")
 			base := gitRun(t, repo, "rev-parse", "HEAD")
 
 			replace(t, root, page, "Provenance on each", "Provenance on every")
@@ -68,6 +71,20 @@ func TestCommitRange(t *testing.T) {
 
 			write(t, root, "wiki/index.md", "# wiki\n\nregenerated\n")
 			indexOnly := commitAll(t, repo, "Regenerate index")
+
+			// Regenerating source and trail indexes replaces and drops lines;
+			// they are generated, not sources or trails.
+			write(t, root, "sources/index.md", "# sources\n\n- [survey, revised](agent-memory-survey.md)\n")
+			write(t, root, "trails/index.md", "# trails\n")
+			zoneIndexes := commitAll(t, repo, "Regenerate zone indexes")
+
+			remove(t, root, "trails/index.md")
+			indexDelete := commitAll(t, repo, "Drop the trails index")
+
+			replace(t, root, "sources/.ok/frontmatter.yml", "zone: sources", "zone: sources # rules")
+			replace(t, root, "trails/.ok/frontmatter.yml", "zone: trails", "zone: trails # rules")
+			write(t, root, "wiki/agent-memory.assets/diagram.png", "redrawn\n")
+			tooling := commitAll(t, repo, "Reword zone rules and redraw a diagram")
 
 			replace(t, root, source, "more\nconsistently", "far more\nconsistently")
 			sourceEdit := commitAll(t, repo, "Fix a typo in the source")
@@ -101,7 +118,7 @@ func TestCommitRange(t *testing.T) {
 				trailRewrite: {"commit.trail_rewritten"},
 				trailDelete:  {"commit.trail_rewritten"},
 			}
-			for _, clean := range []string{tagged, indexOnly, sourceAdd, trailAppend} {
+			for _, clean := range []string{tagged, indexOnly, zoneIndexes, indexDelete, tooling, sourceAdd, trailAppend} {
 				if got := byCommit[clean]; len(got) != 0 {
 					t.Errorf("commit %s: unexpected %v", shortSHA(clean), got)
 				}
