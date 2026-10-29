@@ -162,6 +162,7 @@ func TestOpenKnowledgeThroughFacade(t *testing.T) {
 		if z, _ := r["zone"].(map[string]any); z["zone"] != "wiki" {
 			t.Fatalf("list zone: %v", r)
 		}
+		must("reader", "wiki_links", map[string]any{"kinds": []string{"backlinks", "forward"}, "path": "wiki/agent-memory.md"})
 	})
 
 	var trailCommit, pageCommit, editCommit map[string]any
@@ -276,8 +277,30 @@ func TestOpenKnowledgeThroughFacade(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var sawRead, sawSearch bool
+		has := func(paths []string, want string) bool {
+			for _, p := range paths {
+				if p == want {
+					return true
+				}
+			}
+			return false
+		}
+		var sawRead, sawSearch, sawList, sawLinks bool
 		for _, e := range entries {
+			// Populated list and link responses record the pages they named,
+			// never templates, generated indexes or dead targets.
+			for _, p := range e.Returned {
+				if strings.Contains(p, "/.") || strings.HasSuffix(p, "/index.md") {
+					t.Errorf("%s logged non-page %s", e.Tool, p)
+				}
+			}
+			if e.Tool == "wiki_list" && e.Query == "wiki" && has(e.Returned, "wiki/agent-memory.md") {
+				sawList = true
+			}
+			if e.Tool == "wiki_links" && e.Query == "backlinks,forward wiki/agent-memory.md" &&
+				has(e.Returned, "trails/agent-memory-research-2026-10-28.md") && has(e.Returned, "sources/agent-memory-survey.md") {
+				sawLinks = true
+			}
 			if e.Tool == "wiki_read" && e.Agent == "reader" && len(e.Opened) == 1 && e.Opened[0] == "wiki/agent-memory.md" {
 				sawRead = true
 			}
@@ -285,7 +308,7 @@ func TestOpenKnowledgeThroughFacade(t *testing.T) {
 				sawSearch = true
 			}
 		}
-		if !sawRead || !sawSearch {
+		if !sawRead || !sawSearch || !sawList || !sawLinks {
 			t.Fatalf("read log entries: %+v", entries)
 		}
 	})

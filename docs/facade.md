@@ -68,17 +68,22 @@ without one (`missing_agent`).
 
 OK never commits to the content repo; its history lives in a shadow repo under
 `.git/ok`. So every wiki write takes a required `trail` (the slug of the run's
-trail page), and after OK applies it the facade:
+trail page). Write operations run one at a time: each holds a lock from its
+OK call through its commit, so another agent's change to the same file (or a
+move rewriting it) cannot land in between and be committed under the wrong
+author. After OK applies a write the facade:
 
 1. waits (up to 10 s) until the change is on disk;
 2. commits exactly the touched files (for a move, also every document OK
    rewrote links in) on top of HEAD, built in a temporary index so other
    agents' uncommitted work is never swept in, with the agent as author and
    `<summary> (trail:<slug>)` as subject;
-3. commits any `index.md` files OK regenerated, in their own untagged commit.
+3. commits any `index.md` files OK regenerated, in their own untagged commit
+   (only those paths; anything else staged stays staged).
 
-The result carries `commit` (sha, subject, author), or `commit_error` when the
-change was applied in OK but not committed. Frontmatter is always sent inside
+The result carries `commit` (sha, subject, author, and `index_commit_error`
+if step 3 failed), or `commit_error` when the change was applied in OK but not
+committed. Frontmatter is always sent inside
 the content (OK's separate frontmatter argument drops empty arrays).
 
 OK reconciles these commits into its own history under the git author, and its
@@ -109,7 +114,11 @@ Arguments, content and backend error bodies are never logged.
 Every read operation also appends a durable read-log row (SQLite table
 `read_log` in the service database): time, agent, tool, query, and the page
 paths returned and opened. It is training data for the future routing
-classifier.
+classifier. The query is the search text, the listed folder, or the link
+kinds followed by the page asked about (`backlinks,forward
+wiki/agent-memory.md`). Returned paths are the existing pages the response
+named (search results, listed documents, link sources and targets), as `.md`
+paths, without templates, generated indexes or dead link targets.
 
 ## Tests
 

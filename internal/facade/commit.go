@@ -20,7 +20,12 @@ import (
 // "<summary> (trail:<slug>)" as subject.
 type committer struct {
 	dir string
-	mu  sync.Mutex
+	// writes serialises whole write operations: the OK mutation, the wait
+	// for it to reach disk and its commit. Without it a second agent's write
+	// to the same file (or a move rewriting it) could land between the first
+	// agent's wait and commit, and be committed under the first agent.
+	writes sync.Mutex
+	mu     sync.Mutex
 	// persistWait bounds how long to wait for OK to put a write on disk.
 	persistWait time.Duration
 }
@@ -30,6 +35,9 @@ type Commit struct {
 	SHA     string `json:"sha"`
 	Subject string `json:"subject"`
 	Author  string `json:"author"`
+	// IndexCommitError says why OK's regenerated indexes could not be
+	// committed after this commit; the commit itself stands.
+	IndexCommitError string `json:"index_commit_error,omitempty"`
 }
 
 // identityName must stay simple enough for an email local part.
@@ -50,6 +58,13 @@ func (c *committer) git(ctx context.Context, args ...string) (string, error) {
 }
 
 func (c *committer) gitEnv(ctx context.Context, env []string, args ...string) (string, error) {
+	out, err := c.gitRaw(ctx, env, args...)
+	return strings.TrimSpace(string(out)), err
+}
+
+// gitRaw returns git's output byte for byte, for formats where leading
+// whitespace matters.
+func (c *committer) gitRaw(ctx context.Context, env []string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "git", append([]string{
 		"-C", c.dir, "-c", "user.name=den-wiki", "-c", "user.email=den-wiki@den-wiki.local", "-c", "commit.gpgsign=false",
 	}, args...)...)
@@ -58,9 +73,9 @@ func (c *committer) gitEnv(ctx context.Context, env []string, args ...string) (s
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(stderr.String()))
+		return nil, fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(stderr.String()))
 	}
-	return strings.TrimSpace(string(out)), nil
+	return out, nil
 }
 
 // commit commits exactly paths (content-root-relative; a path missing from
@@ -133,28 +148,37 @@ func (c *committer) commit(ctx context.Context, agent, subject string, paths []s
 	}
 	// Bring the real index in line with the new HEAD for these paths.
 	_, _ = c.git(ctx, append([]string{"reset", "-q", "--"}, paths...)...)
-	c.commitIndexesLocked(ctx)
-	return &Commit{SHA: sha, Subject: subject, Author: authorFor(agent)}, nil
+	cm := &Commit{SHA: sha, Subject: subject, Author: authorFor(agent)}
+	if err := c.commitIndexesLocked(ctx); err != nil {
+		cm.IndexCommitError = err.Error()
+	}
+	return cm, nil
 }
 
 // commitIndexesLocked commits index.md files OK regenerated, as their own
-// untagged commit (the commit checks exempt generated indexes).
-func (c *committer) commitIndexesLocked(ctx context.Context) {
-	out, err := c.git(ctx, "status", "--porcelain", "--untracked-files=all", "--", ":(glob)index.md", ":(glob)**/index.md")
-	if err != nil || out == "" {
-		return
+// untagged commit (the commit checks exempt generated indexes). Only those
+// paths are committed; anything else staged stays staged.
+func (c *committer) commitIndexesLocked(ctx context.Context) error {
+	out, err := c.gitRaw(ctx, nil, "status", "--porcelain", "-z", "--no-renames", "--untracked-files=all", "--", ":(glob)index.md", ":(glob)**/index.md")
+	if err != nil {
+		return err
 	}
 	var paths []string
-	for _, line := range strings.Split(out, "\n") {
-		if len(line) > 3 {
-			paths = append(paths, strings.Trim(line[3:], `"`))
+	// -z entries are "XY <path>" NUL-terminated, with the path unquoted.
+	for _, entry := range strings.Split(string(out), "\x00") {
+		if len(entry) > 3 {
+			paths = append(paths, entry[3:])
 		}
+	}
+	if len(paths) == 0 {
+		return nil
 	}
 	args := append([]string{"--"}, paths...)
 	if _, err := c.git(ctx, append([]string{"add", "-A"}, args...)...); err != nil {
-		return
+		return err
 	}
-	_, _ = c.git(ctx, append([]string{"commit", "-q", "--no-verify", "--author", "den-wiki <den-wiki@den-wiki.local>", "-m", "Regenerate indexes"}, args...)...)
+	_, err = c.git(ctx, append([]string{"commit", "-q", "--no-verify", "--author", "den-wiki <den-wiki@den-wiki.local>", "-m", "Regenerate indexes"}, args...)...)
+	return err
 }
 
 // waitFor polls until cond holds or the wait runs out. OK acknowledges a

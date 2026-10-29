@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -184,6 +185,44 @@ func noise(doc string) bool {
 	return path.Base(doc) == "index"
 }
 
+// pagePaths collects, in order and once each, the content documents a read
+// response names under path, docName or source, as .md paths. Generated
+// indexes, templates and documents that do not exist (dead link targets) are
+// left out, so the read log holds only real pages the caller was shown.
+func (w *wiki) pagePaths(v any) []string {
+	seen := map[string]bool{}
+	var out []string
+	var walk func(any)
+	walk = func(v any) {
+		switch t := v.(type) {
+		case []any:
+			for _, e := range t {
+				walk(e)
+			}
+		case map[string]any:
+			for _, k := range []string{"path", "docName", "source"} {
+				s, _ := t[k].(string)
+				rel := strings.TrimSuffix(s, ".md") + ".md"
+				if s == "" || seen[rel] || noise(strings.TrimSuffix(rel, ".md")) || checkContentPath(rel) != nil || !w.git.exists(rel) {
+					continue
+				}
+				seen[rel] = true
+				out = append(out, rel)
+			}
+			keys := make([]string, 0, len(t))
+			for k := range t {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				walk(t[k])
+			}
+		}
+	}
+	walk(v)
+	return out
+}
+
 func filterList(v any, _ string, keep func(map[string]any) bool) []any {
 	items, _ := v.([]any)
 	out := []any{}
@@ -342,7 +381,7 @@ func wikiOps(ok WikiBackend, contentDir string) []*registry.Operation {
 			out := drop(res, "text")
 			out["folder"] = folder
 			out["zone"] = w.zoneRules(folder + "/")
-			c.NoteRead(folder, nil, nil)
+			c.NoteRead(folder, w.pagePaths(out["enrichedPaths"]), nil)
 			return out, nil
 		}),
 		registry.New(registry.Operation{
@@ -400,12 +439,14 @@ func wikiOps(ok WikiBackend, contentDir string) []*registry.Operation {
 				}
 			}
 			args := map[string]any{"kind": a.Kinds}
+			query := strings.Join(a.Kinds, ",")
 			if a.Path != "" {
-				_, doc, err := docPath(a.Path)
+				rel, doc, err := docPath(a.Path)
 				if err != nil {
 					return nil, err
 				}
 				args["document"] = doc
+				query += " " + rel
 			}
 			if a.Limit > 0 {
 				args["limit"] = a.Limit
@@ -435,7 +476,7 @@ func wikiOps(ok WikiBackend, contentDir string) []*registry.Operation {
 					return !noise(doc) && w.git.exists(doc+".md")
 				})
 			}
-			c.NoteRead(strings.Join(a.Kinds, ","), nil, nil)
+			c.NoteRead(query, w.pagePaths(out), nil)
 			return out, nil
 		}),
 		registry.New(registry.Operation{
@@ -504,6 +545,8 @@ func wikiOps(ok WikiBackend, contentDir string) []*registry.Operation {
 			if err := checkTrail(a.Trail); err != nil {
 				return nil, err
 			}
+			w.git.writes.Lock()
+			defer w.git.writes.Unlock()
 			subj := subject(a.Summary, "Write "+rel, a.Trail)
 			// Frontmatter travels inside content: OK stores it byte-exact,
 			// while its frontmatter argument drops empty arrays (#10462).
@@ -535,6 +578,8 @@ func wikiOps(ok WikiBackend, contentDir string) []*registry.Operation {
 			if err := checkTrail(a.Trail); err != nil {
 				return nil, err
 			}
+			w.git.writes.Lock()
+			defer w.git.writes.Unlock()
 			body := a.Find != nil || a.Replace != nil
 			switch {
 			case body && a.Frontmatter != nil:
@@ -590,6 +635,8 @@ func wikiOps(ok WikiBackend, contentDir string) []*registry.Operation {
 			if err := checkTrail(a.Trail); err != nil {
 				return nil, err
 			}
+			w.git.writes.Lock()
+			defer w.git.writes.Unlock()
 			if !w.git.exists(from) {
 				return nil, &registry.Error{Code: registry.CodeNotFound, Message: from + " does not exist"}
 			}
@@ -634,6 +681,8 @@ func wikiOps(ok WikiBackend, contentDir string) []*registry.Operation {
 			if err := checkTrail(a.Trail); err != nil {
 				return nil, err
 			}
+			w.git.writes.Lock()
+			defer w.git.writes.Unlock()
 			if !w.git.exists(rel) {
 				return nil, &registry.Error{Code: registry.CodeNotFound, Message: rel + " does not exist"}
 			}

@@ -58,6 +58,18 @@ type harness struct {
 
 func newHarness(t *testing.T, wiki *countingWiki) *harness {
 	t.Helper()
+	if wiki == nil {
+		return newHarnessWith(t, nil, "")
+	}
+	h := newHarnessWith(t, wiki, "")
+	h.wiki = wiki
+	return h
+}
+
+// newHarnessWith serves the facade over backend (nil for none) and
+// contentDir.
+func newHarnessWith(t *testing.T, backend WikiBackend, contentDir string) *harness {
+	t.Helper()
 	dir := t.TempDir()
 	db := filepath.Join(dir, "den-wiki.db")
 	store, err := ledger.OpenSQLite(context.Background(), db)
@@ -75,8 +87,8 @@ func newHarness(t *testing.T, wiki *countingWiki) *harness {
 		Ledger: ledger.NewService(store, time.Now), Reads: reads,
 		Logger: slog.New(slog.NewJSONHandler(logs, nil)), Clock: time.Now,
 	}
-	if wiki != nil {
-		d.Wiki = wiki
+	if backend != nil {
+		d.Wiki, d.ContentDir = backend, contentDir
 	}
 	reg, err := NewRegistry(d)
 	if err != nil {
@@ -84,7 +96,7 @@ func newHarness(t *testing.T, wiki *countingWiki) *harness {
 	}
 	srv := httptest.NewServer(NewServer(d, reg))
 	t.Cleanup(srv.Close)
-	return &harness{srv: srv, wiki: wiki, reads: reads, logs: logs}
+	return &harness{srv: srv, reads: reads, logs: logs}
 }
 
 func (h *harness) rpc(t *testing.T, agent, profile, method string, params any) map[string]any {
