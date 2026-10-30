@@ -1,12 +1,13 @@
 # Agent skills
 
-den-wiki ships two skills that teach agents in every harness to use the wiki
+den-wiki ships three skills that teach agents in every harness to use the wiki
 the same way, through the den-wiki MCP or CLI only:
 
 | Skill | For |
 |---|---|
 | `den-wiki-research` | A research run: check prior coverage, check the `research-methods` Knowledge entry, claim a ledger job, write the trail, capture sources, write pages with citations, lint and finish |
 | `den-wiki-lookup` | Read-only lookups that do not research or write |
+| `den-wiki-librarian` | A curation pass: scan, act on duplicates, names, links, hubs, proposals, staleness, size, sources and the unreviewed backlog, and record it all in a curation trail ([curation](curation.md)) |
 
 The skills teach the den-wiki mechanics. How to investigate a given kind of
 question lives in Den Knowledge: the entry `research-methods` indexes method

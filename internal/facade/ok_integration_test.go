@@ -247,6 +247,25 @@ func TestOpenKnowledgeThroughFacade(t *testing.T) {
 		}
 	})
 
+	t.Run("curation scan reads the content and OK's link views", func(t *testing.T) {
+		r := must("librarian", "wiki_curation_scan", map[string]any{})
+		counts, _ := r["counts"].(map[string]any)
+		if len(counts) != len(lint.CurationClasses) || r["pages"].(float64) < 1 {
+			t.Fatalf("scan: %v", r)
+		}
+		found := false
+		for _, it := range r["items"].([]any) {
+			m := it.(map[string]any)
+			found = found || (m["class"] == "unreviewed" && m["path"] == "wiki/agent-durability.md")
+		}
+		if !found {
+			t.Errorf("the probe page is not in the unreviewed backlog: %v", r["items"])
+		}
+		if s, _ := r["summary_markdown"].(string); !strings.Contains(s, "| unreviewed |") {
+			t.Errorf("summary: %q", s)
+		}
+	})
+
 	t.Run("move and delete are committed", func(t *testing.T) {
 		m := must("gamma", "wiki_move", map[string]any{"from": "wiki/agent-durability.md", "to": "wiki/ai/agent-durability.md", "trail": "facade-probe", "summary": "File durability under ai"})
 		if m["commit"] == nil {

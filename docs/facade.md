@@ -43,6 +43,7 @@ agent identity are rejected before any backend is called.
 | `job_create`, `job_list`, `job_claim`, `job_finish` | write/read | default | ledger |
 | `job_get`, `job_events`, `job_renew`, `job_release`, `job_edit`, `job_abandon` | read/write/destructive | long tail | ledger |
 | `wiki_lint`, `wiki_lint_rules` | read | long tail | den-wiki lint on the content dir |
+| `wiki_curation_scan` | read | long tail | `lint.Curate` on the content dir plus OK `links` (dead, orphans); see [curation.md](curation.md) |
 
 `tools/list` lists the default tier. Send `X-Den-Wiki-Tool-Profile: full` (or
 `params.toolProfile: "full"`) to list everything. Long-tail operations are

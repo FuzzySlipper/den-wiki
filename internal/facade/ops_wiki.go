@@ -12,9 +12,11 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/FuzzySlipper/den-wiki/internal/lint"
 	"github.com/FuzzySlipper/den-wiki/internal/okclient"
 	"github.com/FuzzySlipper/den-wiki/internal/registry"
 )
@@ -120,6 +122,7 @@ type wiki struct {
 	dir  string
 	git  *committer
 	deps bool
+	now  func() time.Time
 }
 
 func (w *wiki) ready() error {
@@ -241,6 +244,48 @@ func filterList(v any, _ string, keep func(map[string]any) bool) []any {
 
 func str(m map[string]any, k string) string { s, _ := m[k].(string); return s }
 
+func listOf(v any) []map[string]any {
+	var out []map[string]any
+	l, _ := v.([]any)
+	for _, e := range l {
+		if m, ok := e.(map[string]any); ok {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// linkViews calls OK's links tool and drops its noise: templates, tooling,
+// generated indexes, and hubs or sources that are only dead targets.
+func (w *wiki) linkViews(ctx context.Context, agent string, args map[string]any) (map[string]any, error) {
+	res, err := w.call(ctx, agent, "links", args)
+	if err != nil {
+		return nil, err
+	}
+	out := drop(res, "text")
+	if v, ok := out["deadLinks"]; ok {
+		out["deadLinks"] = filterList(v, "", func(m map[string]any) bool {
+			if noise(str(m, "target")) {
+				return false
+			}
+			m["sources"] = filterList(m["sources"], "", func(s map[string]any) bool { return !noise(str(s, "source")) })
+			srcs, _ := m["sources"].([]any)
+			return len(srcs) > 0
+		})
+	}
+	if v, ok := out["orphans"]; ok {
+		out["orphans"] = filterList(v, "", func(m map[string]any) bool { return !noise(str(m, "docName")) })
+	}
+	if v, ok := out["hubs"]; ok {
+		// OK counts dead targets as hubs; keep only hubs that exist.
+		out["hubs"] = filterList(v, "", func(m map[string]any) bool {
+			doc := str(m, "docName")
+			return !noise(doc) && w.git.exists(doc+".md")
+		})
+	}
+	return out, nil
+}
+
 type wikiReadArgs struct {
 	Path string `json:"path" required:"true" desc:"Content-root-relative page, source or trail, e.g. wiki/agent-memory.md."`
 }
@@ -259,6 +304,11 @@ type wikiLinksArgs struct {
 	Kinds []string `json:"kinds" required:"true" desc:"Any of backlinks, forward, dead, orphans, hubs, suggest."`
 	Path  string   `json:"path,omitempty" desc:"Page for backlinks, forward and suggest, e.g. wiki/agent-memory.md."`
 	Limit int      `json:"limit,omitempty" min:"1" max:"100" desc:"Maximum hubs; default 20."`
+}
+
+type curationScanArgs struct {
+	OversizeWords int `json:"oversize_words,omitempty" min:"100" desc:"Body length in words that counts as oversize; default 2500."`
+	HubMinPages   int `json:"hub_min_pages,omitempty" min:"2" desc:"Pages a tag needs before it wants a hub; default 5."`
 }
 
 type wikiHistoryArgs struct {
@@ -327,8 +377,11 @@ func writeResult(rel string, ok map[string]any, c *Commit, cerr error) map[strin
 	return out
 }
 
-func wikiOps(ok WikiBackend, contentDir string) []*registry.Operation {
-	w := &wiki{ok: ok, dir: contentDir, git: &committer{dir: contentDir}, deps: ok != nil && contentDir != ""}
+func wikiOps(ok WikiBackend, contentDir string, clock func() time.Time) []*registry.Operation {
+	if clock == nil {
+		clock = time.Now
+	}
+	w := &wiki{ok: ok, dir: contentDir, git: &committer{dir: contentDir}, deps: ok != nil && contentDir != "", now: clock}
 	const backend = "openknowledge"
 	return []*registry.Operation{
 		registry.New(registry.Operation{
@@ -451,33 +504,38 @@ func wikiOps(ok WikiBackend, contentDir string) []*registry.Operation {
 			if a.Limit > 0 {
 				args["limit"] = a.Limit
 			}
-			res, err := w.call(ctx, c.Agent, "links", args)
+			out, err := w.linkViews(ctx, c.Agent, args)
 			if err != nil {
 				return nil, err
 			}
-			out := drop(res, "text")
-			if v, ok := out["deadLinks"]; ok {
-				out["deadLinks"] = filterList(v, "", func(m map[string]any) bool {
-					if noise(str(m, "target")) {
-						return false
-					}
-					m["sources"] = filterList(m["sources"], "", func(s map[string]any) bool { return !noise(str(s, "source")) })
-					srcs, _ := m["sources"].([]any)
-					return len(srcs) > 0
-				})
-			}
-			if v, ok := out["orphans"]; ok {
-				out["orphans"] = filterList(v, "", func(m map[string]any) bool { return !noise(str(m, "docName")) })
-			}
-			if v, ok := out["hubs"]; ok {
-				// OK counts dead targets as hubs; keep only hubs that exist.
-				out["hubs"] = filterList(v, "", func(m map[string]any) bool {
-					doc := str(m, "docName")
-					return !noise(doc) && w.git.exists(doc+".md")
-				})
-			}
 			c.NoteRead(query, w.pagePaths(out), nil)
 			return out, nil
+		}),
+		registry.New(registry.Operation{
+			Name: "wiki_curation_scan", Risk: registry.RiskRead, Backend: backend,
+			Description: "Score the wiki for curation work, without changing anything: duplicates, naming, dead links, orphans, missing hubs, unfolded trail proposals, staleness, oversize pages, source integrity and the unreviewed backlog. Returns items ranked within each class and a Markdown summary for the curation trail.",
+		}, func(ctx context.Context, c *registry.Call, a curationScanArgs) (any, error) {
+			if err := w.ready(); err != nil {
+				return nil, err
+			}
+			views, err := w.linkViews(ctx, c.Agent, map[string]any{"kind": []string{"dead", "orphans"}})
+			if err != nil {
+				return nil, err
+			}
+			opts := lint.CurateOptions{Now: w.now(), OversizeWords: a.OversizeWords, HubMinPages: a.HubMinPages}
+			for _, d := range listOf(views["deadLinks"]) {
+				for _, src := range listOf(d["sources"]) {
+					opts.DeadLinks = append(opts.DeadLinks, lint.DeadLink{Source: str(src, "source") + ".md", Target: str(d, "target")})
+				}
+			}
+			for _, o := range listOf(views["orphans"]) {
+				opts.Orphans = append(opts.Orphans, str(o, "docName")+".md")
+			}
+			r, err := lint.Curate(w.dir, opts)
+			if err != nil {
+				return nil, &registry.Error{Code: registry.CodeBackendError, Message: fmt.Sprintf("curation scan: %v", err)}
+			}
+			return r, nil
 		}),
 		registry.New(registry.Operation{
 			Name: "wiki_history", Risk: registry.RiskRead, Backend: backend,

@@ -28,7 +28,7 @@ type Deps struct {
 func Operations(d Deps) []*registry.Operation {
 	var ops []*registry.Operation
 	ops = append(ops, ledgerOps(d.Ledger)...)
-	ops = append(ops, wikiOps(d.Wiki, d.ContentDir)...)
+	ops = append(ops, wikiOps(d.Wiki, d.ContentDir, d.Clock)...)
 	ops = append(ops, lintOps(d.ContentDir)...)
 	return ops
 }

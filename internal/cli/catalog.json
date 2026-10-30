@@ -1,5 +1,5 @@
 {
-  "revision": "catalog-ce5da66ba361",
+  "revision": "catalog-7a47b7f1c094",
   "operations": [
     {
       "name": "job_abandon",
@@ -372,6 +372,30 @@
           "path": {
             "description": "Folder or document to audit; default the whole content repo.",
             "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "name": "wiki_curation_scan",
+      "description": "Score the wiki for curation work, without changing anything: duplicates, naming, dead links, orphans, missing hubs, unfolded trail proposals, staleness, oversize pages, source integrity and the unreviewed backlog. Returns items ranked within each class and a Markdown summary for the curation trail.",
+      "risk": "read",
+      "tier": "long_tail",
+      "backend": "openknowledge",
+      "needs_agent": false,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "hub_min_pages": {
+            "description": "Pages a tag needs before it wants a hub; default 5.",
+            "minimum": 2,
+            "type": "integer"
+          },
+          "oversize_words": {
+            "description": "Body length in words that counts as oversize; default 2500.",
+            "minimum": 100,
+            "type": "integer"
           }
         },
         "type": "object"
