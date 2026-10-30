@@ -40,14 +40,15 @@ Before searching anywhere else:
   Results under `wiki/` are current understanding; results under `trails/` are
   earlier runs, with their queries, sources and dead ends.
 - `wiki_read` the promising pages. A page's read result lists its backlinks,
-  outgoing links and git history; each commit subject names the trail that
-  made the change (`(trail:<slug>)`). Read those trails before repeating their
+  outgoing links and its own git history (`project_history`); each commit
+  subject names the trail that made the change (`(trail:<slug>)`). Read those trails before repeating their
   queries, and skip the sources they rejected.
 - `job_list` with `statuses: ["open", "claimed"]` to see whether someone has
   the question queued or in progress.
 
 No results can simply mean nobody has covered the topic yet; record the
-searches anyway.
+searches anyway. Search scores are relative, so a poor match can still score
+high: judge coverage by the titles and paths returned, not the scores.
 
 Record everything you consulted for the trail's "Prior coverage checked"
 section. If the wiki already answers the question well enough, answer from it
@@ -57,7 +58,8 @@ and stop; a run is for what is missing.
 
 Read the Den Knowledge entry `research-methods`: `den_knowledge_get` with `slug: "research-methods"` on the `den` MCP server, or `den-tool den den_knowledge_get --args-json '{"slug":"research-methods"}'` from a shell. It indexes
 method entries, each with the kinds of questions it applies to. Open only the
-ones that fit your question and follow them on top of this skill. Note in the
+ones that fit your question and follow them on top of this skill. If none
+fits, or the index lists none yet, use this skill's general flow. Note in the
 trail which method you used, or that none applied.
 
 ## 3. Claim a ledger job
@@ -123,8 +125,11 @@ came from: `sources/<site-or-project>/<name>.md` (names may carry dates). The
 body is the material itself, verbatim: the whole document, or the relevant
 excerpts unedited. Never paraphrase in a source. Where the material is
 versioned (a repository, versioned docs), point `source_url` at the exact
-version or commit. Excerpts from several files of one project may share a
-capture if each is headed with its own path or URL.
+version or commit. Where only an unversioned URL exists, pin the underlying
+file's commit if there is one, or give the plain URL and note the capture date
+and rendered URL in the body. A capture has one `source_url`: excerpts from
+several files of one project may share a capture if each is headed with its
+own path or URL, but material from different projects gets separate captures.
 
 ```markdown
 ---
@@ -138,12 +143,22 @@ captured_by_trail: <trail slug>
 <body>
 ```
 
-`sha256` is the SHA-256 of every byte after the closing `---` line. Write the
-body to a local file, hash it (`sha256sum body.md`), and send the frontmatter,
-the closing `---` line and that exact body. When checking a read-back, compare
-the exact bytes (`jq -j`, not `jq -r`, which adds a newline). Sources are never
-edited: if the material changes, capture a new file with `supersedes: <old
-path>`. Relative links inside captured material show up as dead links in
+`sha256` is the SHA-256 of the body: every byte after the newline that ends
+the closing `---` line, including any blank line that follows it. Hash and
+send the same bytes:
+
+1. Write the body to a local file and hash it: `sha256sum body.md`.
+2. Build the whole file (frontmatter, `---` line, then the body file's bytes)
+   and the call's arguments with a script, not by retyping the body.
+3. Send it with the CLI so the bytes travel unchanged:
+   `den-wiki wiki_write --agent <you> --args-json @args.json`.
+4. Check the read-back by exact bytes (`jq -j`, not `jq -r`, which adds a
+   newline).
+
+Sources are never edited: if the material changes, capture a new file with
+`supersedes: <old path>`. A capture you made in this run that turns out wrong,
+before any page cites it, may be removed with `wiki_delete` and captured
+again. Relative links inside captured material show up as dead links in
 `wiki_audit`; that is expected for sources, so leave them verbatim.
 
 ## 7. Write pages
@@ -187,11 +202,17 @@ change under "Proposed changes" instead.
 1. Complete the trail: "Changes made" (links to every page created or edited),
    "Open questions and gaps", and `finished` in the frontmatter
    (`wiki_edit` with a `frontmatter` patch).
-2. Check your files and fix what you can. `wiki_lint` checks the den-wiki
-   contract (frontmatter, names, tags, citations, source hashes, trail
-   sections) over the whole content repo; look for findings on your paths.
-   `wiki_audit` is OpenKnowledge's link and health check (dead links,
-   orphans). A `source.sha256_mismatch` on your own new source means the hash
-   was wrong; capture it again as a new file rather than editing it.
+2. Check your files and fix what you can.
+   - `wiki_lint` checks the den-wiki contract (frontmatter, names, tags,
+     citations, source hashes, trail sections) for every page, source and
+     trail on each call. Zero findings is a real pass; otherwise look for
+     findings on your paths.
+   - `wiki_audit` with a `path` is OpenKnowledge's per-file check, including
+     dead links.
+   - `wiki_links` with `kinds: ["orphans"]` lists pages nothing links to. A
+     trail linked only from frontmatter `trails` shows as an orphan; that is
+     expected.
+   - A `source.sha256_mismatch` on your own new source means the hash was
+     wrong: remove it and capture it again (step 6).
 3. `job_finish` with `trail_slug` and `output_pages` (the `wiki/` paths).
 4. Report the job id, trail slug and page paths to whoever asked.

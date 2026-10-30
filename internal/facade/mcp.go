@@ -92,6 +92,10 @@ type Catalog struct {
 type toolsCallParams struct {
 	Name      string          `json:"name"`
 	Arguments json.RawMessage `json:"arguments,omitempty"`
+	// Meta is MCP's request metadata (progress tokens and the like), which
+	// clients such as Codex send on every call. It is accepted and ignored;
+	// the arguments themselves are still decoded strictly.
+	Meta json.RawMessage `json:"_meta,omitempty"`
 }
 
 type textContent struct {

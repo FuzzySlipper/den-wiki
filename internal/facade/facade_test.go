@@ -274,3 +274,18 @@ func TestHealthAndVersion(t *testing.T) {
 		t.Fatalf("GET /mcp: %d", r.StatusCode)
 	}
 }
+
+func TestToolsCallAcceptsRequestMeta(t *testing.T) {
+	h := newHarness(t, &countingWiki{})
+	out := h.rpc(t, "alice", "", "tools/call", map[string]any{
+		"name": "job_list", "arguments": map[string]any{}, "_meta": map[string]any{"progressToken": "p1"},
+	})
+	res, ok := out["result"].(map[string]any)
+	if !ok || res["isError"].(bool) {
+		t.Fatalf("tools/call with _meta: %v", out)
+	}
+	out = h.rpc(t, "alice", "", "tools/call", map[string]any{"name": "job_list", "arguments": map[string]any{}, "extra": true})
+	if _, isRPCErr := out["error"]; !isRPCErr {
+		t.Fatalf("an unknown params field was accepted: %v", out)
+	}
+}
