@@ -36,7 +36,7 @@ var CurationClasses = []struct{ Class, Meaning string }{
 	{ClassDeadLink, "A wiki page or trail links to a page that does not exist (from OpenKnowledge)"},
 	{ClassOrphan, "A wiki page that no page links to (from OpenKnowledge)"},
 	{ClassMissingHub, "A tag carried by enough pages to need a hub page, with no hub page for it"},
-	{ClassUnfoldedProposal, "A research trail's \"Proposed changes\" that no curation trail has handled yet"},
+	{ClassUnfoldedProposal, "A research trail's \"Proposed changes\" that no curation trail's \"Changes made\" links to yet"},
 	{ClassStale, "A page older than its volatility half-life since it was last updated or verified"},
 	{ClassOversize, "A page whose body is long enough to split"},
 	{ClassSource, "A source that fails its hash, names a missing trail or superseded file, or that no page cites"},
@@ -406,8 +406,10 @@ func (c *curator) unfoldedProposals() {
 		if !isCurationTrail(t.rel) {
 			continue
 		}
-		for _, m := range trailLink.FindAllSubmatch(t.body, -1) {
-			handled[string(m[1])] = true
+		// Only "Changes made" records a decision; links elsewhere (prior
+		// coverage, say) are just references.
+		for _, m := range trailLink.FindAllStringSubmatch(sectionText(t.body, "Changes made"), -1) {
+			handled[m[1]] = true
 		}
 	}
 	for _, t := range c.trails {

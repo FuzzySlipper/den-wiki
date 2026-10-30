@@ -16,15 +16,29 @@ You are running in harness `hermes`. Every operation below is a tool on the
 --args-json '{...}'`). Long-tail operations (`wiki_curation_scan`,
 `wiki_move`, `wiki_delete`, `wiki_links`, `wiki_lint`) are callable by exact
 name; if your harness only offers the tools the server lists, use the CLI for
-them, passing `--agent` with your librarian identity.
+them. The CLI's configured agent may belong to another agent on the host, so
+pass `--agent` with your librarian identity on every CLI write.
 
 ## 1. Start the curation trail
 
 Slug: `curation-<YYYY-MM-DD>-<what>`, for example `curation-2026-10-31-nightly`.
-Write `trails/<slug>.md` first, as in the research skill: `type: trail`,
-`question: Curation pass`, `started`, `agent`, `harness: hermes`, no `job`,
-and the eight section headings empty. Every write in this run passes this slug
-as `trail`.
+Write `trails/<slug>.md` first: frontmatter `type: trail`,
+`question: Curation pass`, `started`, `agent`, `harness: hermes` and no
+`job`, then these eight `##` headings with nothing under them yet:
+
+```markdown
+## Question and scope
+## Prior coverage checked
+## Queries and methods
+## Sources
+## Dead ends
+## Changes made
+## Proposed changes
+## Open questions and gaps
+```
+
+Trails are append-only: add to them, never delete or reword what they record.
+Every write in this run passes this slug as `trail`.
 
 ## 2. Scan, then read what came before
 
@@ -55,23 +69,29 @@ instead. Keep a pass to about 15 changes; the next pass picks up the rest.
 - **missing_hub:** create a `type: hub` page carrying the tag, linking every
   page in that area with a line on each.
 - **unfolded_proposal:** read the trail's "Proposed changes". Apply the ones
-  that are right; decline the rest with a reason. Either way, link the trail
-  from your curation trail (`[slug](/trails/<slug>.md)`); that link is what
-  marks its proposals handled.
+  that are right; decline the rest with a reason, or pass them to the owner
+  under your "Proposed changes". Then record the decision under your "Changes
+  made" with a link to the trail (`[slug](/trails/<slug>.md)`). A link under
+  "Changes made" is what marks a trail's proposals handled; links in other
+  sections do not.
 - **stale:** a page past its volatility half-life. Recheck its key claims
   against its sources. If they still hold and you changed nothing, leave the
   page and note it. If it needs fresh research, `job_create` a research job
   naming the page, and list the job id.
 - **oversize:** split the page into linked pages, one concept each, and leave
   the original as the overview.
-- **source:** a hash mismatch or a missing trail is for the owner; list it.
-  For an uncited source, cite it where it supports a claim, or leave it.
+- **source:** a hash mismatch or a missing trail is for the owner, even when
+  the capture looks empty; list it. For an uncited source, cite it where it
+  supports a claim, or leave it.
 - **unreviewed:** promote a page to `curated` (`wiki_edit` with a `frontmatter`
   patch, `curation: curated`, and `updated`) only when all of these hold:
   - every factual claim is cited, and each quoted span appears verbatim in the
-    cited source (read the sources);
+    cited source (read the sources). A quote from a code comment may join the
+    comment's lines and leave out the comment markers, as long as every word
+    is the source's own;
   - it is the only page for its concept, and its name follows the rule;
-  - it links to and from related pages;
+  - it links to the related pages that exist, and they link back. A page with
+    no related pages yet still qualifies; say so in the trail;
   - `confidence` is set and matches the evidence.
 
   Otherwise fix what is missing or leave it unreviewed, with a note on why.

@@ -75,4 +75,4 @@ and MCP servers, and the profile's main sessions can read their output.
 | Profile | `librarian` (`~hermes-mj/.hermes/profiles/librarian`) |
 | Agent identity | `hermes-librarian` (`X-Den-Wiki-Agent` in the profile's `mcp_servers.den-wiki`) |
 | Skills | `den-wiki-librarian`, `den-wiki-research`, `den-wiki-lookup`, in the profile's `skills/research/` |
-| Cron job | `den-wiki curation`, daily at 03:30 local time |
+| Cron job | `den-wiki curation` (id `736fa4111a9d`), `30 10 * * *` on den-k8's UTC clock: 03:30 Pacific daylight time, 02:30 standard; output delivered `local` (`librarian cron runs`) |

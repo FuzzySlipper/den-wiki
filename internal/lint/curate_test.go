@@ -63,10 +63,14 @@ func curateFixture(t *testing.T) string {
 		"sources/uncited.md": "---\ntype: source\nsource_url: https://e.x/b\ncaptured: 2026-10-01\nsha256: \"" + bodySHA256([]byte("b\n")) + "\"\ncaptured_by_trail: research-one\n---\nb\n",
 		"sources/badhash.md": "---\ntype: source\nsource_url: https://e.x/c\ncaptured: 2026-10-01\nsha256: \"" + strings.Repeat("0", 64) + "\"\ncaptured_by_trail: research-one\n---\nc\n",
 		// trails: one with open proposals, one whose proposals a curation trail handled, one with none
-		"trails/research-one.md":             curTrail("one", "- Add a hub for software."),
-		"trails/research-two.md":             curTrail("two", "- Merge vector pages."),
-		"trails/research-three.md":           curTrail("three", "None."),
-		"trails/curation-2026-10-02-test.md": curTrail("curation", "None.") + "\nFolded [research two](/trails/research-two.md).\n",
+		"trails/research-one.md":   curTrail("one", "- Add a hub for software."),
+		"trails/research-two.md":   curTrail("two", "- Merge vector pages."),
+		"trails/research-three.md": curTrail("three", "None."),
+		// research-two is handled in Changes made; research-one is only
+		// referenced under Prior coverage checked, which does not count.
+		"trails/curation-2026-10-02-test.md": strings.Replace(strings.Replace(curTrail("curation", "None."),
+			"## Changes made\n\nNone.", "## Changes made\n\n- Folded proposals from [research two](/trails/research-two.md).", 1),
+			"## Prior coverage checked\n\nNone.", "## Prior coverage checked\n\n- [research one](/trails/research-one.md)", 1),
 	})
 	// agent-memory cites the cited source so only uncited.md is reported
 	writeContent(t, root, map[string]string{
