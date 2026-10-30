@@ -27,7 +27,7 @@ takes dead links and orphans from OpenKnowledge's link views. It returns:
 | `dead_link` | Links from pages and trails to missing pages (OpenKnowledge). Captured sources keep their original relative links, so their dead links are not reported | 1 |
 | `orphan` | `wiki/` pages nothing links to (OpenKnowledge). Trails and sources are reached through page frontmatter, so they are not reported | 1 |
 | `missing_hub` | A tag on 5 or more pages with no `type: hub` page carrying it; `path` is `tag:<name>` | Pages with the tag |
-| `unfolded_proposal` | A research trail whose "Proposed changes" holds more than "None." and that no curation trail links to | 1 |
+| `unfolded_proposal` | A research trail whose "Proposed changes" holds lines no curation decision has covered (see below) | 1 |
 | `stale` | A page whose later of `updated` and `verified` is older than its volatility half-life: hot 30 days, warm 180 (also when `volatility` is missing), cold 730 | Age divided by half-life |
 | `oversize` | A page body over 2500 words | Words divided by the limit |
 | `source` | `source.sha256_mismatch`, `source.supersedes_missing` and missing `captured_by_trail` findings; and sources no page cites (in `sources` or a body link) and none supersedes | 1, or 0.5 for uncited |
@@ -36,9 +36,14 @@ takes dead links and orphans from OpenKnowledge's link views. It returns:
 `oversize_words` and `hub_min_pages` override the two thresholds. Class names
 are stable; a changed meaning gets a new class.
 
-A curation trail "handles" a research trail by linking to it. The librarian
-links every trail whose proposals it folded or declined, so the next scan
-stops reporting them.
+A curation trail decides on a research trail's proposals by linking the trail
+under "Changes made"; links elsewhere in it are only references. The decision
+covers the proposals the research trail held at the commit that added the
+link. Trails are append-only, so proposals appended afterwards (by a run
+still in progress, or by a trail used as a running log) are reported again,
+with only the new lines, until a later curation trail links it under
+"Changes made" again. Outside a git work tree, or while a link is not
+committed yet, a link covers the trail as it stands.
 
 ## The librarian
 

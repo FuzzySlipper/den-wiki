@@ -181,3 +181,55 @@ func TestNameTokensFoldPluralsAndStopWords(t *testing.T) {
 		t.Fatal("unrelated names should not overlap")
 	}
 }
+
+// A curation decision covers the proposals a research trail held when the
+// decision was committed; proposals appended later are reported again.
+func TestUnfoldedProposalsAppendedAfterACurationDecision(t *testing.T) {
+	root := t.TempDir()
+	gitRun(t, root, "init", "-q", "-b", "main")
+	decision := func(slug, line string) string {
+		return strings.Replace(curTrail("curation", "None."), "## Changes made\n\nNone.", "## Changes made\n\n- "+line+" [research](/trails/"+slug+".md).", 1)
+	}
+	writeContent(t, root, map[string]string{
+		"taxonomy.yml":           curateTaxonomy,
+		"trails/research-log.md": curTrail("log", "- Proposal A."),
+	})
+	commitAll(t, root, "seed")
+	scan := func() []CurationItem {
+		t.Helper()
+		r, err := Curate(root, CurateOptions{Now: time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []CurationItem
+		for _, it := range r.Items {
+			if it.Class == ClassUnfoldedProposal {
+				out = append(out, it)
+			}
+		}
+		return out
+	}
+	if got := scan(); len(got) != 1 || !strings.Contains(got[0].Message, "Proposal A") {
+		t.Fatalf("before any decision: %+v", got)
+	}
+	writeContent(t, root, map[string]string{"trails/curation-2026-10-02-a.md": decision("research-log", "Declined proposal A in")})
+	commitAll(t, root, "decide A")
+	if got := scan(); len(got) != 0 {
+		t.Fatalf("after deciding A: %+v", got)
+	}
+
+	// The research trail grows a proposal after the decision.
+	writeContent(t, root, map[string]string{"trails/research-log.md": curTrail("log", "- Proposal A.\n- Proposal B.")})
+	commitAll(t, root, "append B")
+	got := scan()
+	if len(got) != 1 || !strings.Contains(got[0].Message, "1 proposal line(s) added") || !strings.Contains(got[0].Message, "Proposal B") || strings.Contains(got[0].Message, "Proposal A") {
+		t.Fatalf("after appending B: %+v", got)
+	}
+
+	// A second decision, in a later curation trail, covers B.
+	writeContent(t, root, map[string]string{"trails/curation-2026-10-03-b.md": decision("research-log", "Declined proposal B in")})
+	commitAll(t, root, "decide B")
+	if got := scan(); len(got) != 0 {
+		t.Fatalf("after deciding B: %+v", got)
+	}
+}

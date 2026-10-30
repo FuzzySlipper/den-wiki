@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"math"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -129,7 +130,7 @@ func Curate(root string, opts CurateOptions) (CurationReport, error) {
 	if err != nil {
 		return CurationReport{}, err
 	}
-	c := curator{opts: opts, pages: pages, trails: trails, sources: sources}
+	c := curator{root: root, opts: opts, pages: pages, trails: trails, sources: sources}
 	c.duplicates()
 	c.fromLint(findings)
 	c.links()
@@ -220,6 +221,7 @@ func loadZone(root, zone string) ([]corpusDoc, error) {
 }
 
 type curator struct {
+	root                   string
 	opts                   CurateOptions
 	pages, trails, sources []corpusDoc
 	items                  []CurationItem
@@ -400,32 +402,144 @@ func isCurationTrail(rel string) bool {
 	return strings.HasPrefix(path.Base(rel), "curation-")
 }
 
+// unfoldedProposals reports research trails with proposals no curation trail
+// has decided on. A curation trail decides on a research trail by linking it
+// under "Changes made", and that decision covers the proposals the research
+// trail held when the link was committed. Trails are append-only, so
+// proposals added later stay open until another decision links them.
+// Outside git, a link covers whatever the trail holds now.
 func (c *curator) unfoldedProposals() {
-	handled := map[string]bool{}
-	for _, t := range c.trails {
-		if !isCurationTrail(t.rel) {
-			continue
-		}
-		// Only "Changes made" records a decision; links elsewhere (prior
-		// coverage, say) are just references.
-		for _, m := range trailLink.FindAllStringSubmatch(sectionText(t.body, "Changes made"), -1) {
-			handled[m[1]] = true
-		}
-	}
+	handled, inGit := c.handledProposals()
 	for _, t := range c.trails {
 		if isCurationTrail(t.rel) {
 			continue
 		}
 		slug := strings.TrimSuffix(path.Base(t.rel), ".md")
-		text := sectionText(t.body, "Proposed changes")
-		if handled[slug] || text == "" || isNone(text) {
+		open := proposalLines(sectionText(t.body, "Proposed changes"))
+		done, linked := handled[slug]
+		if linked && !inGit {
 			continue
+		}
+		var left []string
+		for _, l := range open {
+			if !done[l] {
+				left = append(left, l)
+			}
+		}
+		if len(left) == 0 {
+			continue
+		}
+		msg := "proposed changes not yet handled: " + firstLine(strings.Join(left, "\n"))
+		if linked {
+			msg = fmt.Sprintf("%d proposal line(s) added since the last curation decision: %s", len(left), firstLine(strings.Join(left, "\n")))
 		}
 		c.add(CurationItem{
 			Class: ClassUnfoldedProposal, Path: t.rel, Score: 1,
-			Message: "proposed changes not yet handled: " + firstLine(text) + " (fold or decline them, and link this trail from the curation trail)",
+			Message: msg + " (fold or decline them, and link this trail under Changes made in the curation trail)",
 		})
 	}
+}
+
+// handledProposals maps each research trail slug that a curation trail links
+// under "Changes made" to the proposal lines those decisions covered. In git,
+// a decision covers the research trail's proposals at the commit that added
+// the link. inGit is false when the content is not in a git work tree, or a
+// link is not committed yet; then a link covers the trail as it is now.
+func (c *curator) handledProposals() (handled map[string]map[string]bool, inGit bool) {
+	handled = map[string]map[string]bool{}
+	_, err := c.git("rev-parse", "--verify", "-q", "HEAD")
+	inGit = err == nil
+	research := map[string]string{}
+	for _, t := range c.trails {
+		if !isCurationTrail(t.rel) {
+			research[strings.TrimSuffix(path.Base(t.rel), ".md")] = t.rel
+		}
+	}
+	for _, t := range c.trails {
+		if !isCurationTrail(t.rel) {
+			continue
+		}
+		for _, m := range trailLink.FindAllStringSubmatch(sectionText(t.body, "Changes made"), -1) {
+			slug := m[1]
+			rel, ok := research[slug]
+			if !ok {
+				continue
+			}
+			if handled[slug] == nil {
+				handled[slug] = map[string]bool{}
+			}
+			if !inGit {
+				continue
+			}
+			if !c.decisionsInGit(t.rel, slug, rel, handled[slug]) {
+				// The link is not committed yet: count the trail as it is.
+				inGit = false
+			}
+		}
+	}
+	return handled, inGit
+}
+
+// decisionsInGit adds to done the research trail's proposal lines at every
+// commit where curation trail cur gained a "Changes made" link to slug. It
+// reports false when no such commit exists.
+func (c *curator) decisionsInGit(cur, slug, research string, done map[string]bool) bool {
+	out, err := c.git("log", "--format=%H", "-S", slug+".md", "--", "./"+cur)
+	if err != nil {
+		return false
+	}
+	found := false
+	for _, sha := range strings.Fields(out) {
+		curAt, err := c.git("show", sha+":./"+cur)
+		if err != nil || !linksUnderChanges(curAt, slug) {
+			continue
+		}
+		found = true
+		if resAt, err := c.git("show", sha+":./"+research); err == nil {
+			doc, err := parseDocument([]byte(resAt))
+			body := []byte(resAt)
+			if err == nil {
+				body = doc.body
+			}
+			for _, l := range proposalLines(sectionText(body, "Proposed changes")) {
+				done[l] = true
+			}
+		}
+	}
+	return found
+}
+
+func linksUnderChanges(trail, slug string) bool {
+	for _, m := range trailLink.FindAllStringSubmatch(sectionText([]byte(trail), "Changes made"), -1) {
+		if m[1] == slug {
+			return true
+		}
+	}
+	return false
+}
+
+// proposalLines returns the non-blank lines of a "Proposed changes" section,
+// trimmed, without "None." lines.
+func proposalLines(text string) []string {
+	var out []string
+	for _, l := range strings.Split(text, "\n") {
+		l = strings.TrimSpace(l)
+		if l != "" && !noneText.MatchString(l) {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+func (c *curator) git(args ...string) (string, error) {
+	cmd := exec.Command("git", append([]string{"-C", c.root}, args...)...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(stderr.String()))
+	}
+	return string(out), nil
 }
 
 var noneText = regexp.MustCompile(`(?i)^none[.!]?\s*$`)

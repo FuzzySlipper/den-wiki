@@ -78,7 +78,9 @@ any tags pages already use without a taxonomy entry. Only the owner edits
   under your "Proposed changes". Then record the decision under your "Changes
   made" with a link to the trail (`[slug](/trails/<slug>.md)`). A link under
   "Changes made" is what marks a trail's proposals handled; links in other
-  sections do not.
+  sections do not. It covers the proposals the trail held when you linked
+  it: when a trail gains proposals later, the scan reports it again with only
+  the new lines, and you decide on those.
 - **stale:** a page past its volatility half-life. Recheck its key claims
   against its sources. If they still hold and you changed nothing, leave the
   page and note it. If it needs fresh research, `job_create` a research job
