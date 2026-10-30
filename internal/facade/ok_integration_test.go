@@ -185,8 +185,18 @@ func TestOpenKnowledgeThroughFacade(t *testing.T) {
 		if !strings.Contains(string(got), "across sessions and harnesses") {
 			t.Fatalf("edit not on disk: %s", got)
 		}
+		// wiki_write replaces an existing file: OK refuses unless told the
+		// position, and research agents grow trails this way.
+		grown := probeTrail + "\nAppended by a second whole-file write.\n"
+		w = must("alpha", "wiki_write", map[string]any{"path": "trails/facade-probe.md", "content": grown, "trail": "facade-probe", "summary": "Grow facade probe trail"})
+		if w["commit"] == nil {
+			t.Fatalf("replacing write made no commit: %v", w)
+		}
+		if got, _ := os.ReadFile(filepath.Join(stack.ContentDir, "trails/facade-probe.md")); string(got) != grown {
+			t.Fatalf("replacing write not on disk: %q", got)
+		}
 		log := stack.Git(t, "log", "--format=%an|%s", stack.Seed+"..HEAD")
-		for _, want := range []string{"alpha|Start facade probe trail (trail:facade-probe)", "alpha|Add agent durability page (trail:facade-probe)", "beta|Widen durability claim (trail:facade-probe)"} {
+		for _, want := range []string{"alpha|Start facade probe trail (trail:facade-probe)", "alpha|Add agent durability page (trail:facade-probe)", "beta|Widen durability claim (trail:facade-probe)", "alpha|Grow facade probe trail (trail:facade-probe)"} {
 			if !strings.Contains(log, want) {
 				t.Errorf("git log lacks %q:\n%s", want, log)
 			}

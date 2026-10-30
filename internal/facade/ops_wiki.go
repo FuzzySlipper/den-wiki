@@ -550,7 +550,9 @@ func wikiOps(ok WikiBackend, contentDir string) []*registry.Operation {
 			subj := subject(a.Summary, "Write "+rel, a.Trail)
 			// Frontmatter travels inside content: OK stores it byte-exact,
 			// while its frontmatter argument drops empty arrays (#10462).
-			res, err := w.call(ctx, c.Agent, "write", map[string]any{"document": map[string]any{"path": doc, "content": a.Content}, "summary": subj})
+			// OK refuses to overwrite an existing document unless told how;
+			// replace is also its default for a new one.
+			res, err := w.call(ctx, c.Agent, "write", map[string]any{"document": map[string]any{"path": doc, "content": a.Content, "position": "replace"}, "summary": subj})
 			if err != nil {
 				return nil, err
 			}

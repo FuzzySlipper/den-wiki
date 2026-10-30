@@ -46,6 +46,9 @@ Before searching anywhere else:
 - `job_list` with `statuses: ["open", "claimed"]` to see whether someone has
   the question queued or in progress.
 
+No results can simply mean nobody has covered the topic yet; record the
+searches anyway.
+
 Record everything you consulted for the trail's "Prior coverage checked"
 section. If the wiki already answers the question well enough, answer from it
 and stop; a run is for what is missing.
@@ -115,9 +118,13 @@ the sources dry up; record what is left under "Open questions and gaps".
 
 ## 6. Capture sources
 
-Every source a page cites is captured under `sources/` (names may carry dates;
-subfolders are fine). The body is the material itself, verbatim: the whole
-document, or the relevant excerpts unedited. Never paraphrase in a source.
+Every source a page cites is captured under `sources/`, grouped by where it
+came from: `sources/<site-or-project>/<name>.md` (names may carry dates). The
+body is the material itself, verbatim: the whole document, or the relevant
+excerpts unedited. Never paraphrase in a source. Where the material is
+versioned (a repository, versioned docs), point `source_url` at the exact
+version or commit. Excerpts from several files of one project may share a
+capture if each is headed with its own path or URL.
 
 ```markdown
 ---
@@ -133,8 +140,11 @@ captured_by_trail: <trail slug>
 
 `sha256` is the SHA-256 of every byte after the closing `---` line. Write the
 body to a local file, hash it (`sha256sum body.md`), and send the frontmatter,
-the closing `---` line and that exact body. Sources are never edited: if the
-material changes, capture a new file with `supersedes: <old path>`.
+the closing `---` line and that exact body. When checking a read-back, compare
+the exact bytes (`jq -j`, not `jq -r`, which adds a newline). Sources are never
+edited: if the material changes, capture a new file with `supersedes: <old
+path>`. Relative links inside captured material show up as dead links in
+`wiki_audit`; that is expected for sources, so leave them verbatim.
 
 ## 7. Write pages
 
@@ -147,9 +157,10 @@ material changes, capture a new file with `supersedes: <old path>`.
   `hub`), `title`, `aliases`, `tags`, `sources`, `trails` (your slug),
   `curation: unreviewed`, `confidence`, `volatility` (`hot`, `warm`, `cold`)
   and `updated`. Tags come only from the content repo's `taxonomy.yml` (seed:
-  `meta`, `software`, `ai`, `games`, `research-method`); leave `tags` empty
-  rather than invent one, and propose the tag under "Proposed changes". Never
-  set `verified`; only a human does.
+  `meta`, `software`, `ai`, `games`, `research-method`); `wiki_lint` reports a
+  tag that is not there as `taxonomy.unknown_tag`. Leave `tags` empty rather
+  than invent one, and propose the tag under "Proposed changes". Never set
+  `verified`; only a human does.
 - **Citations:** each claim cites its source with a footnote that links to the
   capture and quotes the supporting span. The link text has at least two words:
 
@@ -176,8 +187,11 @@ change under "Proposed changes" instead.
 1. Complete the trail: "Changes made" (links to every page created or edited),
    "Open questions and gaps", and `finished` in the frontmatter
    (`wiki_edit` with a `frontmatter` patch).
-2. Run `wiki_lint` and fix findings in the files you wrote. A
-   `source.sha256_mismatch` on your own new source means the hash was wrong;
-   capture it again as a new file rather than editing it.
+2. Check your files and fix what you can. `wiki_lint` checks the den-wiki
+   contract (frontmatter, names, tags, citations, source hashes, trail
+   sections) over the whole content repo; look for findings on your paths.
+   `wiki_audit` is OpenKnowledge's link and health check (dead links,
+   orphans). A `source.sha256_mismatch` on your own new source means the hash
+   was wrong; capture it again as a new file rather than editing it.
 3. `job_finish` with `trail_slug` and `output_pages` (the `wiki/` paths).
 4. Report the job id, trail slug and page paths to whoever asked.
