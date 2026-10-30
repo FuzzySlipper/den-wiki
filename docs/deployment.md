@@ -46,18 +46,14 @@ server process with the unit.
 CT 104's `/etc/caddy/Caddyfile` has the block in
 `deploy/caddy/wiki.dragonden.stream.caddy`. Certificates come from the global
 Cloudflare DNS issuer. `/mcp`, `/healthz`, `/version` and `/v1/*` go to the
-den-wiki service with no auth, LAN-only like `den.dragonden.stream`.
-Everything else is the OK UI behind basic auth, user `patch`. OK gives full
-control to whoever reaches it, and the container firewall makes Caddy the only
-way in.
+den-wiki service, and everything else to the OK UI. Neither has auth: the site
+is LAN-only, like `den.dragonden.stream`. OK has no user accounts and gives
+full control to whoever reaches it. The container firewall makes Caddy the
+only way in, so a login can be added back in one place: a `basic_auth` block
+(one line per user, `caddy hash-password` for each hash, no complexity rules)
+in the UI's `handle`, then `systemctl reload caddy`.
 
-To change the UI password (no complexity rules), on CT 104:
-
-```bash
-caddy hash-password --plaintext '<new password>'
-```
-
-Put the hash in place of the old one in the `wiki.dragonden.stream` block, then
+After editing the Caddyfile, apply it with
 `systemctl reload caddy`. Every `reverse_proxy` on CT 104 sets
 `stream_close_delay 5m`: without it a reload closes proxied WebSockets (such
 as OK's `/collab`) synchronously, and one unresponsive client can hang the
