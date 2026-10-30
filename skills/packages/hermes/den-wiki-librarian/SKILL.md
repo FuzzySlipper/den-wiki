@@ -91,9 +91,10 @@ any tags pages already use without a taxonomy entry. Only the owner edits
 - **unreviewed:** promote a page to `curated` (`wiki_edit` with a `frontmatter`
   patch, `curation: curated`, and `updated`) only when all of these hold:
   - every factual claim is cited, and each quoted span appears verbatim in the
-    cited source (read the sources). A quote from a code comment may join the
-    comment's lines and leave out the comment markers, as long as every word
-    is the source's own;
+    cited source (read the sources). Line breaks do not count: a quote that
+    matches except where the source breaks a line is verbatim. A quote from a
+    code comment may also leave out the comment markers, as long as every
+    word is the source's own;
   - it is the only page for its concept, and its name follows the rule;
   - it links to the related pages that exist, and they link back. A page with
     no related pages yet still qualifies; say so in the trail;
