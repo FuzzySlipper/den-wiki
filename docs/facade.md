@@ -118,15 +118,19 @@ so it never runs inside a facade write. Each pass looks at the files under
 files excepted) and:
 
 1. commits paths a facade write left uncommitted under that write's agent and
-   subject;
+   subject, once they reach disk. Such a path stays pending until a commit of
+   it lands, whether this one or a later facade write's;
 2. leaves a file changed within `ui_commits.quiet` for a later pass, so a page
    being typed into is committed once, not on every save;
-3. restores a source whose change is only blank lines or trailing whitespace
-   from HEAD. Captures are byte-exact, and their `sha256` must keep matching;
-4. commits the remaining whitespace-only changes together, subject
+3. commits the changes that only move blank lines or trailing whitespace
+   together, subject
    `Formatting only, re-saved by the OpenKnowledge editor: <paths> (ui:format)`;
-5. commits everything else together, subject
+4. commits everything else together, subject
    `Edit in the OpenKnowledge UI: <paths> (ui)`.
+
+It never reverts anything. It cannot tell a person's edit from an editor
+re-save, so a source re-saved by viewing it is committed too, and lint reports
+the changed capture (`source.sha256_mismatch`, `commit.source_edited`).
 
 UI commits are authored by `ui_commits.author` (default `ui`, so
 `ui <ui@den-wiki.local>`). The `(ui)` and `(ui:format)` tags stand in for

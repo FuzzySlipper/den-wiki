@@ -35,11 +35,10 @@ type UIOptions struct {
 
 // UIResult is what one reconcile pass did.
 type UIResult struct {
-	Edits    []*Commit `json:"edits,omitempty"`
-	Format   *Commit   `json:"format,omitempty"`
-	Retried  []*Commit `json:"retried,omitempty"`
-	Restored []string  `json:"restored,omitempty"`
-	Waiting  []string  `json:"waiting,omitempty"`
+	Edits   []*Commit `json:"edits,omitempty"`
+	Format  *Commit   `json:"format,omitempty"`
+	Retried []*Commit `json:"retried,omitempty"`
+	Waiting []string  `json:"waiting,omitempty"`
 }
 
 // RunUICommits reconciles every opts.Interval until ctx ends.
@@ -62,9 +61,6 @@ func (c *Committer) RunUICommits(ctx context.Context, opts UIOptions, logger *sl
 				logger.Info("ui_commit", "sha", cm.SHA, "subject", cm.Subject, "author", cm.Author)
 			}
 		}
-		if len(r.Restored) > 0 {
-			logger.Info("ui_format_restored", "paths", r.Restored)
-		}
 	}
 }
 
@@ -73,13 +69,15 @@ func (c *Committer) RunUICommits(ctx context.Context, opts UIOptions, logger *sl
 // facade write never sweeps up its changes.
 //
 //   - A path a facade write left uncommitted is committed under that
-//     write's agent and subject.
+//     write's agent and subject once it reaches disk.
 //   - A file changed less than Quiet ago is left for a later pass.
-//   - A source whose change is whitespace only is restored from HEAD:
-//     captures are byte-exact, and their sha256 must keep matching.
-//   - Other whitespace-only changes are committed together as one
+//   - Whitespace-only changes are committed together as one
 //     "(ui:format)" commit.
 //   - Everything else is committed as one "(ui)" edit.
+//
+// Nothing is reverted, even in sources/: the reconciler cannot tell a
+// person's edit from an editor re-save, so it records both and lint reports
+// a changed source (source.sha256_mismatch, commit.source_edited).
 func (c *Committer) ReconcileUI(ctx context.Context, opts UIOptions) (UIResult, error) {
 	var r UIResult
 	if opts.Now == nil {
@@ -101,12 +99,12 @@ func (c *Committer) ReconcileUI(ctx context.Context, opts UIOptions) (UIResult, 
 	for _, p := range changed {
 		dirty[p] = true
 	}
+	// A path whose write has not reached disk yet stays pending: it is
+	// dropped only once a commit of that path lands (Committer.commit).
 	retry := map[pendingWrite][]string{}
 	var order []pendingWrite
-	var gone []string
 	for p, w := range pending {
 		if !dirty[p] {
-			gone = append(gone, p) // committed meanwhile, or never reached disk
 			continue
 		}
 		if retry[w] == nil {
@@ -115,7 +113,6 @@ func (c *Committer) ReconcileUI(ctx context.Context, opts UIOptions) (UIResult, 
 		retry[w] = append(retry[w], p)
 		delete(dirty, p)
 	}
-	c.forget(gone)
 	sort.Slice(order, func(i, j int) bool { return order[i].subject < order[j].subject })
 	for _, w := range order {
 		paths := retry[w]
@@ -124,7 +121,6 @@ func (c *Committer) ReconcileUI(ctx context.Context, opts UIOptions) (UIResult, 
 		if err != nil {
 			return r, err
 		}
-		c.forget(paths)
 		if cm != nil {
 			r.Retried = append(r.Retried, cm)
 		}
@@ -140,18 +136,11 @@ func (c *Committer) ReconcileUI(ctx context.Context, opts UIOptions) (UIResult, 
 			r.Waiting = append(r.Waiting, p)
 			continue
 		}
-		if !c.whitespaceOnly(ctx, p) {
+		if c.whitespaceOnly(ctx, p) {
+			format = append(format, p)
+		} else {
 			edits = append(edits, p)
-			continue
 		}
-		if strings.HasPrefix(p, "sources/") {
-			if _, err := c.git(ctx, "checkout", "HEAD", "--", p); err != nil {
-				return r, err
-			}
-			r.Restored = append(r.Restored, p)
-			continue
-		}
-		format = append(format, p)
 	}
 	if len(edits) > 0 {
 		cm, err := c.commit(ctx, opts.Author, "Edit in the OpenKnowledge UI: "+listPaths(edits)+" (ui)", edits)

@@ -59,16 +59,18 @@ func TestReconcileUI(t *testing.T) {
 	if len(r.Edits) != 1 || r.Edits[0].Subject != "Edit in the OpenKnowledge UI: wiki/edited.md, wiki/new-page.md (ui)" || r.Edits[0].Author != "ui <ui@den-wiki.local>" {
 		t.Errorf("edits: %+v", r.Edits)
 	}
-	if r.Format == nil || r.Format.Subject != "Formatting only, re-saved by the OpenKnowledge editor: wiki/viewed.md (ui:format)" {
+	// A whitespace-only source change is recorded, not reverted: it may be
+	// a person's edit. Lint reports the changed capture.
+	if r.Format == nil || r.Format.Subject != "Formatting only, re-saved by the OpenKnowledge editor: sources/capture.md, wiki/viewed.md (ui:format)" {
 		t.Errorf("format: %+v", r.Format)
 	}
-	if strings.Join(r.Restored, ",") != "sources/capture.md" || strings.Join(r.Waiting, ",") != "wiki/typing.md" {
-		t.Errorf("restored %v waiting %v", r.Restored, r.Waiting)
+	if strings.Join(r.Waiting, ",") != "wiki/typing.md" {
+		t.Errorf("waiting %v", r.Waiting)
 	}
-	if got := gitIn(t, dir, "show", "HEAD:sources/capture.md"); got != strings.TrimSpace(read(t, dir, "sources/capture.md")) {
-		t.Errorf("source not restored: %q", read(t, dir, "sources/capture.md"))
+	if got := read(t, dir, "sources/capture.md"); got != "---\nurl: x\n---\nCaptured.\n" {
+		t.Errorf("source edit not kept: %q", got)
 	}
-	for sha, files := range map[string]string{r.Retried[0].SHA: "wiki/failed.md", r.Edits[0].SHA: "wiki/edited.md\nwiki/new-page.md", r.Format.SHA: "wiki/viewed.md"} {
+	for sha, files := range map[string]string{r.Retried[0].SHA: "wiki/failed.md", r.Edits[0].SHA: "wiki/edited.md\nwiki/new-page.md", r.Format.SHA: "sources/capture.md\nwiki/viewed.md"} {
 		if got := gitIn(t, dir, "show", "--name-only", "--format=", sha); got != files {
 			t.Errorf("commit %s has %q, want %q", sha[:7], got, files)
 		}
@@ -90,6 +92,54 @@ func TestReconcileUI(t *testing.T) {
 	}
 	if gitIn(t, dir, "rev-parse", "HEAD") != head {
 		t.Fatal("idle pass moved HEAD")
+	}
+	if len(c.pendingWrites()) != 0 {
+		t.Errorf("pending left: %v", c.pendingWrites())
+	}
+}
+
+// A facade write that has not reached disk when a pass runs keeps its
+// attribution until it lands, and a later facade commit of the same path
+// supersedes it.
+func TestReconcileUIKeepsPendingWritesUntilTheyLand(t *testing.T) {
+	dir := t.TempDir()
+	gitIn(t, dir, "init", "-q", "-b", "main")
+	put(t, dir, "wiki/slow.md", "v1\n")
+	put(t, dir, "wiki/other.md", "v1\n")
+	gitIn(t, dir, "add", "-A")
+	gitIn(t, dir, "commit", "-q", "-m", "seed")
+	c := NewCommitter(dir)
+	ctx := context.Background()
+	opts := UIOptions{Quiet: time.Minute}
+
+	// Timed out: one write to an existing page, one creating a page.
+	c.remember("alpha", "Edit slow (trail:run)", []string{"wiki/slow.md"})
+	c.remember("alpha", "Create late (trail:run)", []string{"wiki/late.md"})
+	if r, err := c.ReconcileUI(ctx, opts); err != nil || len(r.Retried)+len(r.Edits) != 0 {
+		t.Fatalf("pass before the writes land: %+v %v", r, err)
+	}
+	if len(c.pendingWrites()) != 2 {
+		t.Fatalf("pending dropped early: %v", c.pendingWrites())
+	}
+	put(t, dir, "wiki/slow.md", "v2\n")
+	put(t, dir, "wiki/late.md", "late\n")
+	age(t, dir, "wiki/slow.md", 5*time.Minute)
+	age(t, dir, "wiki/late.md", 5*time.Minute)
+	r, err := c.ReconcileUI(ctx, opts)
+	if err != nil || len(r.Retried) != 2 || len(r.Edits) != 0 {
+		t.Fatalf("pass after they land: %+v %v", r, err)
+	}
+	for _, cm := range r.Retried {
+		if cm.Author != "alpha <alpha@den-wiki.local>" || !strings.HasSuffix(cm.Subject, "(trail:run)") {
+			t.Errorf("retried as %+v", cm)
+		}
+	}
+
+	// A later facade commit of the path settles an earlier failed write.
+	c.remember("beta", "Edit other (trail:run)", []string{"wiki/other.md"})
+	put(t, dir, "wiki/other.md", "v3\n")
+	if _, err := c.settle(ctx, nil, "gamma", "Edit other again (trail:run)", []string{"wiki/other.md"}); err != nil {
+		t.Fatal(err)
 	}
 	if len(c.pendingWrites()) != 0 {
 		t.Errorf("pending left: %v", c.pendingWrites())

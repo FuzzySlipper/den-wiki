@@ -169,6 +169,11 @@ func (c *Committer) commit(ctx context.Context, agent, subject string, paths []s
 	if _, err := c.git(ctx, "update-ref", "-m", "den-wiki: "+subject, "HEAD", sha, head); err != nil {
 		return nil, err
 	}
+	// These paths are committed now, so an earlier uncommitted facade write
+	// to them is settled or superseded.
+	for _, p := range paths {
+		delete(c.pending, p)
+	}
 	// Bring the real index in line with the new HEAD for these paths.
 	_, _ = c.git(ctx, append([]string{"reset", "-q", "--"}, paths...)...)
 	cm := &Commit{SHA: sha, Subject: subject, Author: authorFor(agent)}
@@ -187,15 +192,6 @@ func (c *Committer) pendingWrites() map[string]pendingWrite {
 		out[p] = w
 	}
 	return out
-}
-
-// forget drops paths from the uncommitted facade writes.
-func (c *Committer) forget(paths []string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for _, p := range paths {
-		delete(c.pending, p)
-	}
 }
 
 // settle commits a facade write's paths once waitErr says they reached disk.

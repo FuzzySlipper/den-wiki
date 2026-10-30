@@ -124,5 +124,4 @@ push. The `ui_commits` section of `/etc/den-wiki/den-wiki.yml` sets the author
 (`ui`), how often it looks (`interval`, 30 s) and how long a file must go
 unchanged first (`quiet`, 60 s); `disabled: true` turns it off. What it
 commits and how is in [facade](facade.md#changes-made-in-the-ui). Its commits
-show in `journalctl -u den-wiki` as `ui_commit`, and source re-saves it
-restored as `ui_format_restored`.
+show in `journalctl -u den-wiki` as `ui_commit`.
