@@ -18,5 +18,6 @@ Repository rules:
 - One Go module, standard library first. Keep the CLI thin and put rule logic in `internal/`.
 - One operation registry (`internal/registry`) is the source for MCP tools and the CLI. Operations are added in `internal/facade`; the facade owns no domain state. See `docs/facade.md`.
 - OpenKnowledge is reached only over its MCP endpoint, pinned in `scripts/ok-version`. Never vendor, link or patch it.
+- Skills are edited only in `skills/source/` and `skills/harnesses.yml`; regenerate `skills/packages/` with `go run ./cmd/den-wiki-skills` (the drift test fails otherwise). Research method guidance belongs in the Den Knowledge entry `research-methods` and the entries it lists, not in the skills. See `docs/skills.md`.
 - Configuration comes from flags and YAML files, never environment variables.
 - Before review: `scripts/verify.sh` (gofumpt, `go vet ./...`, `go test ./...`, template lint), and `scripts/ok-integration.sh <dir> --isolate-home` when the facade or content template changes. CI runs them as the `verify` and `ok-integration` jobs.

@@ -17,6 +17,8 @@ OpenKnowledge.
 - `den-wiki lint`: checks a content directory against the contract.
 - [`deploy/`](deploy): the den-prox-mini container, units, firewall and Caddy
   site at `https://wiki.dragonden.stream` ([deployment](docs/deployment.md)).
+- [`skills/`](skills): the `den-wiki-research` and `den-wiki-lookup` agent
+  skills, one source packaged per harness ([skills](docs/skills.md)).
 
 ```bash
 CGO_ENABLED=0 go build -trimpath -o ~/.local/bin/den-wiki ./cmd/den-wiki

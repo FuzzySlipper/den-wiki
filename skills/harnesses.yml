@@ -1,0 +1,33 @@
+# Harnesses the den-wiki skills are packaged for. go run ./cmd/den-wiki-skills
+# renders skills/source/<skill>/ for each harness into
+# skills/packages/<harness>/<skill>/; TestPackagesMatchSource fails when the
+# committed packages differ from a fresh render.
+#
+# name:      the value agents pass as `harness` (job_claim, trail frontmatter)
+# install:   where the harness looks for skills (scripts/install-skills.sh)
+# knowledge: how an agent in this harness reads a Den Knowledge entry
+harnesses:
+  - name: claude-code
+    install: ~/.claude/skills
+    knowledge: >-
+      `den_knowledge_get` with `slug: "research-methods"` on the Den MCP server
+      (`runner`), or `den-tool den den_knowledge_get --args-json
+      '{"slug":"research-methods"}'` from a shell
+  - name: codex
+    install: ~/.codex/skills
+    knowledge: >-
+      `den_knowledge_get` with `slug: "research-methods"` on the `den` MCP
+      server, or `den-tool den den_knowledge_get --args-json
+      '{"slug":"research-methods"}'` from a shell
+  - name: dsh
+    install: ~/.dsh/skills
+    knowledge: >-
+      `den_knowledge_get` with `slug: "research-methods"` on the `den` MCP
+      server, or `den-tool den den_knowledge_get --args-json
+      '{"slug":"research-methods"}'` from a shell
+  - name: hermes
+    install: ~/.hermes/skills
+    knowledge: >-
+      `den_knowledge_get` with `slug: "research-methods"` on the Den MCP server
+      if it is registered, or `den-tool den den_knowledge_get --args-json
+      '{"slug":"research-methods"}'` from a shell

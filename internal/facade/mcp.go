@@ -175,6 +175,7 @@ func (m *MCP) handle(ctx context.Context, info requestInfo, raw []byte) (rpcResp
 			"capabilities":    map[string]any{"tools": map[string]any{"listChanged": false}},
 			"serverInfo":      map[string]any{"name": "den-wiki", "title": "den-wiki", "version": m.version},
 			"instructions": "den-wiki research knowledge base. Search and read before writing; one concept, one page. " +
+				"Research runs follow the den-wiki-research skill (ledger job, trail, sources, pages); read-only lookups follow den-wiki-lookup. " +
 				"Send your identity in the " + AgentHeader + " header. Long-tail tools are callable by exact name; list them with the " + ProfileHeader + ": full header.",
 			"catalog": cat,
 		}), true
