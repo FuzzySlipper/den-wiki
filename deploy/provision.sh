@@ -12,6 +12,9 @@ bundle="$(cd "$(dirname "$0")/.." && pwd)"
 node_version="$(tr -d '[:space:]' < "$bundle/deploy/node-version")"
 ok_version="$(tr -d '[:space:]' < "$bundle/scripts/ok-version")"
 content=/srv/den-wiki-content
+# The LAN Git host on den-nas (anonymous git://). Publishing anywhere else is
+# a deliberate, manual step.
+backup_remote=git://192.168.1.9/den-wiki-content.git
 
 echo "== packages"
 export DEBIAN_FRONTEND=noninteractive
@@ -61,6 +64,9 @@ if [[ ! -d "$content/.git" ]]; then
 	runuser -u denwiki -- git -C "$content" add -A
 	runuser -u denwiki -- git -C "$content" -c user.name=den-wiki -c user.email=den-wiki@den-wiki.local \
 		commit -q -m "Seed den-wiki-content from the den-wiki content template"
+fi
+if ! runuser -u denwiki -- git -C "$content" remote get-url nas >/dev/null 2>&1; then
+	runuser -u denwiki -- git -C "$content" remote add nas "$backup_remote"
 fi
 # OK keeps its lock and local state here, so the directory must be denwiki's.
 install -d -o denwiki -g denwiki "$content/.ok/local"

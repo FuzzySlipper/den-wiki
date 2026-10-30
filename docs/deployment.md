@@ -58,8 +58,9 @@ caddy hash-password --plaintext '<new password>'
 ```
 
 Put the hash in place of the old one in the `wiki.dragonden.stream` block, then
-`caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile` (with
-`/etc/caddy/caddy.env` loaded).
+`systemctl reload caddy`. The global `grace_period 10s` keeps a reload from
+waiting on long-lived connections such as OK's collaboration WebSockets;
+without it a reload can hang until every old connection closes.
 
 ## Harness hosts
 
@@ -74,7 +75,7 @@ From a den-wiki checkout on den-agents:
 
 ```bash
 deploy/bundle.sh /tmp/den-wiki-bundle.tgz
-scp -F ~/server-access/den-wiki/config /tmp/den-wiki-bundle.tgz target:/root/
+~/server-access/den-wiki/connect 'cat > /root/den-wiki-bundle.tgz' < /tmp/den-wiki-bundle.tgz
 ~/server-access/den-wiki/connect 'rm -rf /root/den-wiki-deploy && mkdir /root/den-wiki-deploy && tar xzf /root/den-wiki-bundle.tgz -C /root/den-wiki-deploy && /root/den-wiki-deploy/deploy/provision.sh'
 ```
 
@@ -104,13 +105,17 @@ Never run `ok init` in the container: it edits editor configs and
   `pct restore 108 <archive>` on `prox` (stop or remove the old CT 108 first;
   never run two copies on .13).
 - **Content repo:** `den-wiki-push.timer` pushes `main` to each remote of
-  `/srv/den-wiki-content`. With no remote it logs that and succeeds. Add a
-  remote as `denwiki` (`git -C /srv/den-wiki-content remote add <name> <url>`,
-  with an SSH key in `/var/lib/den-wiki/.ssh`). Check pushes with
-  `journalctl -u den-wiki-push`. A repo restored from a remote is a working
-  content repo: clone it to `/srv/den-wiki-content` as `denwiki`, re-run
-  `provision.sh` (it adds `.ok/local/config.yml`) and restart. OK rebuilds its
-  index; its shadow history starts fresh.
+  `/srv/den-wiki-content`. Its one remote is `nas`,
+  `git://192.168.1.9/den-wiki-content.git`: a bare repository on the den-nas
+  LAN Git host (anonymous `git://`, the same host as `server-access`; see
+  `~/server-access/git-host/README.md`). `provision.sh` adds it when missing.
+  Offsite copies are the NAS's job. Nothing pushes to GitHub: publishing
+  content anywhere else is a deliberate, manual step. Check pushes with
+  `journalctl -u den-wiki-push` or `git ls-remote
+  git://192.168.1.9/den-wiki-content.git`. A clone of the NAS repo is a
+  working content repo: clone it to `/srv/den-wiki-content` as `denwiki`,
+  re-run `provision.sh` (it adds `.ok/local/config.yml`) and restart. OK
+  rebuilds its index; its shadow history starts fresh.
 - **Ledger:** `/var/lib/den-wiki/den-wiki.db` is only in the container backup.
   For a point-in-time copy, stop `den-wiki` and copy the file.
 
@@ -118,6 +123,3 @@ Never run `ok init` in the container: it edits editor configs and
 
 - Edits made in the OK UI are not committed: only facade writes make commits,
   so the backup push misses UI edits until something commits them.
-- On CT 104, `caddy.service` has been stuck in systemd state `reloading` since
-  2026-10-22 (a reload job that never finished). Caddy itself serves and
-  reloads, but `systemctl reload caddy` waits on that old job.
