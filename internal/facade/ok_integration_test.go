@@ -213,15 +213,17 @@ func TestOpenKnowledgeThroughFacade(t *testing.T) {
 		}
 		// OK folds changes into its own history asynchronously (a wip entry
 		// first, reconciled later), so wait for beta's edit to appear there.
+		// On a loaded CI runner that has taken over 30 s; git and
+		// project_history above already prove the attribution.
 		var hist []byte
-		for deadline := time.Now().Add(30 * time.Second); ; time.Sleep(500 * time.Millisecond) {
+		for deadline := time.Now().Add(90 * time.Second); ; time.Sleep(500 * time.Millisecond) {
 			hist, _ = json.Marshal(must("reader", "wiki_history", map[string]any{"path": "wiki/agent-durability.md"}))
 			if strings.Contains(string(hist), "beta") || time.Now().After(deadline) {
 				break
 			}
 		}
 		if !strings.Contains(string(hist), "beta") {
-			t.Errorf("OK history does not attribute the latest edit to beta within 30s: %s", hist)
+			t.Errorf("OK history does not attribute the latest edit to beta within 90s: %s", hist)
 		}
 	})
 
