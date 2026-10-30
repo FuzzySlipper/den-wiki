@@ -256,7 +256,9 @@ func TestOpenKnowledgeThroughFacade(t *testing.T) {
 		if d["commit"] == nil {
 			t.Fatalf("delete: %v", d)
 		}
-		log := stack.Git(t, "log", "--format=%an|%s", "-2")
+		// OK may regenerate indexes in between, so look at gamma's commits
+		// rather than the last two.
+		log := stack.Git(t, "log", "--format=%an|%s", "--author=gamma", "-2")
 		if !strings.Contains(log, "gamma|Remove probe page (trail:facade-probe)") || !strings.Contains(log, "gamma|File durability under ai (trail:facade-probe)") {
 			t.Fatalf("git log:\n%s", log)
 		}
