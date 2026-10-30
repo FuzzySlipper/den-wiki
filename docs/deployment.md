@@ -58,9 +58,10 @@ caddy hash-password --plaintext '<new password>'
 ```
 
 Put the hash in place of the old one in the `wiki.dragonden.stream` block, then
-`systemctl reload caddy`. The global `grace_period 10s` keeps a reload from
-waiting on long-lived connections such as OK's collaboration WebSockets;
-without it a reload can hang until every old connection closes.
+`systemctl reload caddy`. Every `reverse_proxy` on CT 104 sets
+`stream_close_delay 5m`: without it a reload closes proxied WebSockets (such
+as OK's `/collab`) synchronously, and one unresponsive client can hang the
+reload. With it, open streams survive a reload for up to 5 minutes.
 
 ## Harness hosts
 

@@ -5,13 +5,18 @@
 wiki.dragonden.stream {
 	@facade path /mcp /mcp/* /healthz /version /v1/*
 	handle @facade {
-		reverse_proxy 192.168.1.13:7341
+		reverse_proxy 192.168.1.13:7341 {
+			stream_close_delay 5m
+		}
 	}
 	handle {
 		basic_auth {
 			patch {{BCRYPT_HASH}}
 		}
 		reverse_proxy 192.168.1.13:4800 {
+			# Close streams on a timer after a reload so one stuck
+			# WebSocket client cannot hang the reload.
+			stream_close_delay 5m
 			flush_interval -1
 		}
 	}
