@@ -284,6 +284,16 @@ func TestToolsCallAcceptsRequestMeta(t *testing.T) {
 	if !ok || res["isError"].(bool) {
 		t.Fatalf("tools/call with _meta: %v", out)
 	}
+	meta := map[string]any{"progressToken": 7}
+	for method, params := range map[string]map[string]any{
+		"initialize": {"protocolVersion": "2025-06-18", "capabilities": map[string]any{}, "clientInfo": map[string]any{"name": "t", "version": "0"}, "_meta": meta},
+		"tools/list": {"_meta": meta},
+		"ping":       {"_meta": meta},
+	} {
+		if out := h.rpc(t, "alice", "", method, params); out["error"] != nil {
+			t.Errorf("%s with _meta: %v", method, out["error"])
+		}
+	}
 	out = h.rpc(t, "alice", "", "tools/call", map[string]any{"name": "job_list", "arguments": map[string]any{}, "extra": true})
 	if _, isRPCErr := out["error"]; !isRPCErr {
 		t.Fatalf("an unknown params field was accepted: %v", out)

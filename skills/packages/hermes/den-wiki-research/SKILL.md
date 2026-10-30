@@ -26,11 +26,13 @@ shows the full schema). Use whichever is available; they behave the same.
 | Check | `wiki_lint` (long tail) |
 
 Long-tail operations are not in the default tool list but are callable by
-exact name. Writes need an agent identity. The MCP registration sends it, and
-`missing_agent` means the harness registration lacks it. With the CLI, pass
-`--agent hermes-<host>` (for example `hermes-den-agents`) on every call,
-so your writes are attributed to this harness rather than the shared CLI
-default.
+exact name. If your harness only offers the tools the server lists, call
+long-tail operations through the CLI. Writes need an agent identity. The MCP
+registration sends it, and `missing_agent` means the harness registration
+lacks it. The CLI sends the `agent` from its config
+(`~/.config/den-wiki/cli.yml`). If that is missing, or shared with other
+harnesses on the host, pass `--agent hermes-<host>` on every call so your
+writes are attributed to this harness.
 
 ## 1. Check prior coverage first
 
@@ -99,10 +101,11 @@ harness: hermes
 ## Open questions and gaps
 ```
 
-All eight sections stay present, with "None." under any that stay empty.
-Trails are append-only: grow them with `wiki_edit` or a `wiki_write` of the
-whole file that keeps every earlier line. Never delete or reword what a trail
-already records.
+Start with the eight headings and nothing under them. Trails are append-only:
+grow them with `wiki_edit` or a `wiki_write` of the whole file that keeps every
+earlier line, and never delete or reword what a trail already records. Write
+"None." only when you finish, under any section that stayed empty, so no
+placeholder ever has to be removed.
 
 ## 5. Research in rounds
 
@@ -123,7 +126,9 @@ the sources dry up; record what is left under "Open questions and gaps".
 Every source a page cites is captured under `sources/`, grouped by where it
 came from: `sources/<site-or-project>/<name>.md` (names may carry dates). The
 body is the material itself, verbatim: the whole document, or the relevant
-excerpts unedited. Never paraphrase in a source. Where the material is
+excerpts unedited. Never paraphrase in a source. HTML may be converted to
+plain text or Markdown as long as no wording changes; say how it was converted
+in the trail. Where the material is
 versioned (a repository, versioned docs), point `source_url` at the exact
 version or commit. Where only an unversioned URL exists, pin the underlying
 file's commit if there is one, or give the plain URL and note the capture date
