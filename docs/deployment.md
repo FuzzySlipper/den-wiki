@@ -19,7 +19,7 @@ den-wiki runs in its own LXC on den-prox-mini (Proxmox host `prox`,
 | Unit | Runs | Listens |
 |---|---|---|
 | `ok-wiki.service` | OpenKnowledge (UI and MCP), user `denwiki`, cwd `/srv/den-wiki-content` | `0.0.0.0:4800` |
-| `den-wiki.service` | `den-wiki serve --config /etc/den-wiki/den-wiki.yml` (MCP facade, ledger, content commits), user `denwiki` | `192.168.1.13:7341` |
+| `den-wiki.service` | `den-wiki serve --config /etc/den-wiki/den-wiki.yml` (MCP facade, ledger, content commits, and the background commits of UI changes), user `denwiki` | `192.168.1.13:7341` |
 | `den-wiki-push.timer` | `den-wiki-push.service` every 15 minutes: `git push` of `main` to every remote of the content repo | — |
 | `nftables.service` | `/etc/nftables.conf`: ports 4800 and 7341 accept only loopback and Caddy (192.168.1.6) | — |
 
@@ -116,7 +116,13 @@ Never run `ok init` in the container: it edits editor configs and
 - **Ledger:** `/var/lib/den-wiki/den-wiki.db` is only in the container backup.
   For a point-in-time copy, stop `den-wiki` and copy the file.
 
-## Known limitations
+## Changes made in the UI
 
-- Edits made in the OK UI are not committed: only facade writes make commits,
-  so the backup push misses UI edits until something commits them.
+`den-wiki serve` commits what people change in the OK UI, including pages the
+editor re-saves when they are only viewed, so it reaches the 15-minute backup
+push. The `ui_commits` section of `/etc/den-wiki/den-wiki.yml` sets the author
+(`ui`), how often it looks (`interval`, 30 s) and how long a file must go
+unchanged first (`quiet`, 60 s); `disabled: true` turns it off. What it
+commits and how is in [facade](facade.md#changes-made-in-the-ui). Its commits
+show in `journalctl -u den-wiki` as `ui_commit`, and source re-saves it
+restored as `ui_format_restored`.

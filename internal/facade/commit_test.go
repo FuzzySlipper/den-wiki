@@ -36,7 +36,7 @@ func TestCommitterCommitsOnlyItsPaths(t *testing.T) {
 	put(t, dir, "wiki/b.md", "b\n")
 	gitIn(t, dir, "add", "-A")
 	gitIn(t, dir, "commit", "-q", "-m", "seed")
-	c := &committer{dir: dir}
+	c := &Committer{dir: dir}
 	ctx := context.Background()
 
 	// Another agent's work in progress, staged and unstaged, stays out.

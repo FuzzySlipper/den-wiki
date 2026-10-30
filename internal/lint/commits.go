@@ -11,6 +11,13 @@ import (
 // TrailTag matches the (trail:<slug>) commit-subject tag.
 var TrailTag = regexp.MustCompile(`\(trail:([a-z0-9]+(?:-[a-z0-9]+)*)\)`)
 
+// UITag matches the tag den-wiki puts on commits of changes made in
+// OpenKnowledge's web UI: "(ui)" for an edit, "(ui:format)" for a change
+// that only moved blank lines or trailing whitespace. A person editing in the
+// UI has no trail, so these commits are exempt from the trail-tag rule, and a
+// formatting-only commit cannot rewrite a trail.
+var UITag = regexp.MustCompile(`\(ui(:format)?\)`)
+
 type commit struct {
 	sha, subject string
 	// changes are "<status>\t<path>" from --name-status.
@@ -43,6 +50,8 @@ func (l *linter) checkCommits(rangeSpec string) ([]Finding, error) {
 	}
 	var out []Finding
 	for _, c := range commits {
+		ui := UITag.FindStringSubmatch(c.subject)
+		formatOnly := ui != nil && ui[1] != ""
 		wikiPaths := []string{}
 		for _, ch := range c.changes {
 			rel, ok := strings.CutPrefix(ch.path, prefix)
@@ -61,11 +70,11 @@ func (l *linter) checkCommits(rangeSpec string) ([]Finding, error) {
 				out = append(out, commitFinding(codeCommitSourceEdit, rel, c, "commit modifies an existing source; capture a new file with supersedes instead"))
 			case strings.HasPrefix(rel, zoneTrails+"/") && ch.status == "D":
 				out = append(out, commitFinding(codeCommitTrailEdit, rel, c, "commit deletes a trail; trails are append-only"))
-			case strings.HasPrefix(rel, zoneTrails+"/") && ch.status == "M" && shrunk[c.sha+"\x00"+ch.path]:
+			case strings.HasPrefix(rel, zoneTrails+"/") && ch.status == "M" && shrunk[c.sha+"\x00"+ch.path] && !formatOnly:
 				out = append(out, commitFinding(codeCommitTrailEdit, rel, c, "commit removes lines from a trail; trails are append-only"))
 			}
 		}
-		if len(wikiPaths) == 0 {
+		if len(wikiPaths) == 0 || ui != nil {
 			continue
 		}
 		m := TrailTag.FindStringSubmatch(c.subject)

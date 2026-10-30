@@ -207,6 +207,14 @@ in that commit, so commit the trail with (or before) the pages it changed.
 Following provenance is then: a page's git history → each commit → its trail →
 the sources the trail accepted and rejected.
 
+A person editing in OpenKnowledge's web UI has no trail. The facade commits
+those changes in the background with `(ui)` in place of the trail tag, or
+`(ui:format)` when the change only moves blank lines or trailing whitespace
+(OK's editor re-saves pages in its own formatting when they are viewed). Lint
+accepts both tags in place of `(trail:<slug>)`, and a `(ui:format)` commit
+cannot rewrite a trail. A UI edit that changes a source or removes lines from
+a trail is still reported.
+
 `den-wiki lint --commits <range>` also reports commits in the range that modify
 an existing source (`commit.source_edited`) or remove lines from or delete a
 trail (`commit.trail_rewritten`).
@@ -312,7 +320,7 @@ exit code never reflects findings, because rules are findings, not write blocks.
 | `source.sha256_mismatch` | error | A source body does not match its `sha256` |
 | `source.supersedes_missing` | warning | A `supersedes` target does not exist, or is the file itself |
 | `trail.section_missing` | warning | A trail lacks a required section |
-| `commit.missing_trail_tag` | warning | A commit changes `wiki/` without `(trail:<slug>)` |
+| `commit.missing_trail_tag` | warning | A commit changes `wiki/` without `(trail:<slug>)`, `(ui)` or `(ui:format)` |
 | `commit.unknown_trail` | warning | A commit's trail tag names a trail absent from that commit |
 | `commit.source_edited` | warning | A commit modifies an existing source |
 | `commit.trail_rewritten` | warning | A commit removes lines from or deletes a trail |

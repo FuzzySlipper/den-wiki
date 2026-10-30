@@ -75,7 +75,8 @@ func serve(ctx context.Context, cfg config.Server, logger *slog.Logger, ready ch
 		opts = append(opts, ledger.WithContentDir(cfg.ContentDir))
 	}
 	svc := ledger.NewService(store, time.Now, opts...)
-	deps := facade.Deps{Ledger: svc, ContentDir: cfg.ContentDir, Reads: reads, Logger: logger, Clock: time.Now}
+	commits := facade.NewCommitter(cfg.ContentDir)
+	deps := facade.Deps{Ledger: svc, ContentDir: cfg.ContentDir, Commits: commits, Reads: reads, Logger: logger, Clock: time.Now}
 	if cfg.OpenKnowledge.URL != "" {
 		deps.Wiki = facade.NewOKWiki(okclient.New(cfg.OpenKnowledge.URL, cfg.OpenKnowledge.Timeout))
 	}
@@ -104,6 +105,9 @@ func serve(ctx context.Context, cfg config.Server, logger *slog.Logger, ready ch
 			}
 		}
 	}()
+	if ui := cfg.UICommits; cfg.ContentDir != "" && !ui.Disabled {
+		go commits.RunUICommits(ctx, facade.UIOptions{Author: ui.Author, Interval: ui.Interval, Quiet: ui.Quiet}, logger)
+	}
 	go func() {
 		<-ctx.Done()
 		shut, cancel := context.WithTimeout(context.Background(), 10*time.Second)

@@ -18,9 +18,12 @@ type Deps struct {
 	Ledger     *ledger.Service
 	Wiki       WikiBackend
 	ContentDir string
-	Reads      ReadLog
-	Logger     *slog.Logger
-	Clock      func() time.Time
+	// Commits makes the content commits. Give the same one to RunUICommits
+	// so UI commits and facade writes share a lock; nil makes a private one.
+	Commits *Committer
+	Reads   ReadLog
+	Logger  *slog.Logger
+	Clock   func() time.Time
 }
 
 // Operations returns every den-wiki operation over deps. The MCP handler and
@@ -28,7 +31,7 @@ type Deps struct {
 func Operations(d Deps) []*registry.Operation {
 	var ops []*registry.Operation
 	ops = append(ops, ledgerOps(d.Ledger)...)
-	ops = append(ops, wikiOps(d.Wiki, d.ContentDir, d.Clock)...)
+	ops = append(ops, wikiOps(d.Wiki, d.ContentDir, d.Commits, d.Clock)...)
 	ops = append(ops, lintOps(d.ContentDir)...)
 	return ops
 }

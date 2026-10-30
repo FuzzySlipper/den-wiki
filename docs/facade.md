@@ -97,12 +97,43 @@ author. After OK applies a write the facade:
 
 The result carries `commit` (sha, subject, author, and `index_commit_error`
 if step 3 failed), or `commit_error` when the change was applied in OK but not
-committed. Frontmatter is always sent inside
+committed yet. The UI reconciler (below) retries such a commit under the same
+agent and subject. Frontmatter is always sent inside
 the content (OK's separate frontmatter argument drops empty arrays).
 
 OK reconciles these commits into its own history under the git author, and its
 read briefing (`wiki_read`'s `project_history`) lists them with their
 trail-tagged subjects. Pushing the content repo is the deployment's job.
+
+### Changes made in the UI
+
+OK's web UI writes straight to the content directory. So does its visual
+editor when someone only views a page: it re-saves the page in its own
+Markdown formatting (blank lines between footnote definitions, none after the
+frontmatter). The UI reconciler (`Committer.ReconcileUI`, run by `den-wiki
+serve` every `ui_commits.interval`) commits these changes so they reach
+history and the backup. It takes the same write lock as the wiki operations,
+so it never runs inside a facade write. Each pass looks at the files under
+`sources/`, `trails/` and `wiki/` that differ from HEAD (generated `index.md`
+files excepted) and:
+
+1. commits paths a facade write left uncommitted under that write's agent and
+   subject;
+2. leaves a file changed within `ui_commits.quiet` for a later pass, so a page
+   being typed into is committed once, not on every save;
+3. restores a source whose change is only blank lines or trailing whitespace
+   from HEAD. Captures are byte-exact, and their `sha256` must keep matching;
+4. commits the remaining whitespace-only changes together, subject
+   `Formatting only, re-saved by the OpenKnowledge editor: <paths> (ui:format)`;
+5. commits everything else together, subject
+   `Edit in the OpenKnowledge UI: <paths> (ui)`.
+
+UI commits are authored by `ui_commits.author` (default `ui`, so
+`ui <ui@den-wiki.local>`). The `(ui)` and `(ui:format)` tags stand in for
+`(trail:<slug>)`; see the commit convention in the
+[content contract](content-contract.md). A UI edit to the same file as a
+concurrent agent write is committed under the agent, because OK merges both
+into one file before the facade commits it.
 
 ## Responses and errors
 

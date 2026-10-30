@@ -15,3 +15,12 @@ openknowledge:
   # OK's MCP endpoint, on loopback beside the facade. Empty disables the wiki tools.
   url: http://127.0.0.1:4800/mcp
   timeout: 30s
+
+# Background commits of content changes that did not come through the facade:
+# edits in OK's web UI, pages its editor re-saved when viewed, and facade
+# writes whose own commit failed. Needs content_dir. See docs/facade.md.
+ui_commits:
+  disabled: false
+  author: ui        # git author of UI commits
+  interval: 30s     # how often to look for changes
+  quiet: 60s        # how long a file must go unchanged before it is committed

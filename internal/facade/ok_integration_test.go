@@ -105,7 +105,7 @@ func TestOpenKnowledgeThroughFacade(t *testing.T) {
 	logs := &bytes.Buffer{}
 	d := Deps{
 		Ledger: ledger.NewService(store, time.Now, ledger.WithContentDir(stack.ContentDir)),
-		Wiki:   wiki, ContentDir: stack.ContentDir, Reads: reads,
+		Wiki:   wiki, ContentDir: stack.ContentDir, Commits: NewCommitter(stack.ContentDir), Reads: reads,
 		Logger: slog.New(slog.NewJSONHandler(logs, nil)), Clock: time.Now,
 	}
 	reg, err := NewRegistry(d)
@@ -298,6 +298,59 @@ func TestOpenKnowledgeThroughFacade(t *testing.T) {
 		log := stack.Git(t, "log", "--format=%an|%s", "--author=gamma", "-2")
 		if !strings.Contains(log, "gamma|Remove probe page (trail:facade-probe)") || !strings.Contains(log, "gamma|File durability under ai (trail:facade-probe)") {
 			t.Fatalf("git log:\n%s", log)
+		}
+	})
+
+	t.Run("a UI write racing a facade write is committed apart", func(t *testing.T) {
+		// The browser writes through OK directly, as its own session; the
+		// facade write runs at the same time.
+		ui := okclient.New(stack.MCP, 30*time.Second)
+		uiPage := "---\ntype: concept\ntitle: UI note\n---\n\nWritten in the browser.\n"
+		uiErr := make(chan error, 1)
+		go func() {
+			_, err := ui.Call(ctx, "browser", "write", map[string]any{"document": map[string]any{"path": "wiki/ui-note", "content": uiPage, "position": "replace"}, "summary": "browser"})
+			uiErr <- err
+		}()
+		w := must("delta", "wiki_write", map[string]any{"path": "wiki/delta-note.md", "content": "---\ntype: concept\ntitle: Delta note\n---\n\nWritten by an agent.\n", "trail": "facade-probe", "summary": "Add delta note"})
+		if err := <-uiErr; err != nil {
+			t.Fatalf("browser write: %v", err)
+		}
+		cm, _ := w["commit"].(map[string]any)
+		if cm == nil {
+			t.Fatalf("facade write: %v", w)
+		}
+		if files := stack.Git(t, "show", "--name-only", "--format=", cm["sha"].(string)); strings.TrimSpace(files) != "wiki/delta-note.md" {
+			t.Fatalf("the agent's commit holds %q", files)
+		}
+		deadline := time.Now().Add(10 * time.Second)
+		for {
+			if b, err := os.ReadFile(filepath.Join(stack.ContentDir, "wiki/ui-note.md")); err == nil && string(b) == uiPage {
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatal("the browser write never reached disk")
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		r, err := d.Commits.ReconcileUI(ctx, UIOptions{Author: "ui"})
+		if err != nil || len(r.Edits) != 1 {
+			t.Fatalf("reconcile: %+v %v", r, err)
+		}
+		e := r.Edits[0]
+		if e.Author != "ui <ui@den-wiki.local>" || !strings.HasSuffix(e.Subject, " (ui)") {
+			t.Fatalf("UI commit: %+v", e)
+		}
+		if files := stack.Git(t, "show", "--name-only", "--format=", e.SHA); strings.TrimSpace(files) != "wiki/ui-note.md" {
+			t.Fatalf("the UI commit holds %q", files)
+		}
+		fs, err := lint.Lint(stack.ContentDir, lint.Options{Commits: cm["sha"].(string) + "~1..HEAD"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, f := range fs {
+			if strings.HasPrefix(f.Code, "commit.") {
+				t.Errorf("commit finding: %+v", f)
+			}
 		}
 	})
 

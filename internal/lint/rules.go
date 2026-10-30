@@ -53,7 +53,7 @@ var (
 	codeSourceHash        = rule("source.sha256_mismatch", Error, "a source's body does not match its sha256 field")
 	codeSourceSupersedes  = rule("source.supersedes_missing", Warning, "a source's supersedes target does not exist")
 	codeTrailSection      = rule("trail.section_missing", Warning, "a trail lacks one of the required sections")
-	codeCommitTrailTag    = rule("commit.missing_trail_tag", Warning, "a commit changes wiki/ without (trail:<slug>) in its subject")
+	codeCommitTrailTag    = rule("commit.missing_trail_tag", Warning, "a commit changes wiki/ without (trail:<slug>), (ui) or (ui:format) in its subject")
 	codeCommitTrailFound  = rule("commit.unknown_trail", Warning, "a commit's (trail:<slug>) names a trail that does not exist")
 	codeCommitSourceEdit  = rule("commit.source_edited", Warning, "a commit modifies an existing source; a re-fetch is a new file with supersedes")
 	codeCommitTrailEdit   = rule("commit.trail_rewritten", Warning, "a commit removes lines from or deletes a trail; trails are append-only")

@@ -95,6 +95,15 @@ func TestCommitRange(t *testing.T) {
 			write(t, root, trail, read(t, root, trail)+"\nAppended note.\n")
 			trailAppend := commitAll(t, repo, "Append to the trail")
 
+			replace(t, root, page, "Provenance on every", "Provenance on each")
+			uiEdit := commitAll(t, repo, "Edit in the OpenKnowledge UI: wiki/agent-memory.md (ui)")
+
+			replace(t, root, trail, "marketing, no evidence.\n\n## Dead ends", "marketing, no evidence.\n## Dead ends")
+			uiFormat := commitAll(t, repo, "Formatting only, re-saved by the OpenKnowledge editor: "+trail+" (ui:format)")
+
+			replace(t, root, trail, "Rejected: a vendor blog post", "Rejected: a blog post")
+			uiTrail := commitAll(t, repo, "Edit in the OpenKnowledge UI: "+trail+" (ui)")
+
 			replace(t, root, trail, "None; the wiki had no memory pages.\n", "")
 			trailRewrite := commitAll(t, repo, "Tidy the trail")
 
@@ -116,9 +125,10 @@ func TestCommitRange(t *testing.T) {
 				unknown:      {"commit.unknown_trail"},
 				sourceEdit:   {"commit.source_edited"},
 				trailRewrite: {"commit.trail_rewritten"},
+				uiTrail:      {"commit.trail_rewritten"},
 				trailDelete:  {"commit.trail_rewritten"},
 			}
-			for _, clean := range []string{tagged, indexOnly, zoneIndexes, indexDelete, tooling, sourceAdd, trailAppend} {
+			for _, clean := range []string{tagged, indexOnly, zoneIndexes, indexDelete, tooling, sourceAdd, trailAppend, uiEdit, uiFormat} {
 				if got := byCommit[clean]; len(got) != 0 {
 					t.Errorf("commit %s: unexpected %v", shortSHA(clean), got)
 				}

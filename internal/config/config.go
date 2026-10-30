@@ -29,6 +29,23 @@ type Server struct {
 	ContentDir string `yaml:"content_dir"`
 	// OpenKnowledge is the OK server the wiki tools pass through to.
 	OpenKnowledge OpenKnowledge `yaml:"openknowledge"`
+	// UICommits commits changes made in OK's web UI. It needs content_dir.
+	UICommits UICommits `yaml:"ui_commits"`
+}
+
+// UICommits configures the background commits of content changes that did
+// not come through the facade: edits in OK's web UI, pages its editor
+// re-saved when viewed, and facade writes whose own commit failed.
+type UICommits struct {
+	// Disabled turns the background commits off.
+	Disabled bool `yaml:"disabled"`
+	// Author is the git author of UI commits; default "ui".
+	Author string `yaml:"author"`
+	// Interval is how often to look for changes; default 30s.
+	Interval time.Duration `yaml:"interval"`
+	// Quiet is how long a file must go unchanged before it is committed;
+	// default 60s.
+	Quiet time.Duration `yaml:"quiet"`
 }
 
 // OpenKnowledge locates the OK server.
@@ -45,6 +62,10 @@ const (
 	DefaultListen   = "127.0.0.1:7341"
 	DefaultDatabase = "den-wiki.db"
 	DefaultTimeout  = 30 * time.Second
+
+	DefaultUIAuthor   = "ui"
+	DefaultUIInterval = 30 * time.Second
+	DefaultUIQuiet    = 60 * time.Second
 )
 
 // LoadServer reads path strictly (unknown keys are errors) and applies
@@ -78,6 +99,15 @@ func LoadServer(path string) (Server, error) {
 	if s.OpenKnowledge.Timeout == 0 {
 		s.OpenKnowledge.Timeout = DefaultTimeout
 	}
+	if s.UICommits.Author == "" {
+		s.UICommits.Author = DefaultUIAuthor
+	}
+	if s.UICommits.Interval == 0 {
+		s.UICommits.Interval = DefaultUIInterval
+	}
+	if s.UICommits.Quiet == 0 {
+		s.UICommits.Quiet = DefaultUIQuiet
+	}
 	return s, s.Validate()
 }
 
@@ -85,6 +115,9 @@ func LoadServer(path string) (Server, error) {
 func (s Server) Validate() error {
 	if err := CheckListen(s.Listen); err != nil {
 		return err
+	}
+	if s.UICommits.Interval < 0 || s.UICommits.Quiet < 0 {
+		return fmt.Errorf("ui_commits interval and quiet must not be negative")
 	}
 	if u := s.OpenKnowledge.URL; u != "" && !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
 		return fmt.Errorf("openknowledge.url %q must be an http(s) URL", u)

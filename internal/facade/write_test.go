@@ -98,7 +98,7 @@ func TestRegeneratedIndexesAreCommittedSeparately(t *testing.T) {
 	gitIn(t, dir, "add", "wiki/staged.md")
 	put(t, dir, "wiki/a.md", "a v2\n")
 
-	c := &committer{dir: dir}
+	c := &Committer{dir: dir}
 	cm, err := c.commit(context.Background(), "alpha", "Edit a (trail:run)", []string{"wiki/a.md"})
 	if err != nil || cm == nil || cm.IndexCommitError != "" {
 		t.Fatalf("commit: %+v %v", cm, err)

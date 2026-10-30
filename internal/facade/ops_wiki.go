@@ -120,7 +120,7 @@ func okError(err error) error {
 type wiki struct {
 	ok   WikiBackend
 	dir  string
-	git  *committer
+	git  *Committer
 	deps bool
 	now  func() time.Time
 }
@@ -377,11 +377,14 @@ func writeResult(rel string, ok map[string]any, c *Commit, cerr error) map[strin
 	return out
 }
 
-func wikiOps(ok WikiBackend, contentDir string, clock func() time.Time) []*registry.Operation {
+func wikiOps(ok WikiBackend, contentDir string, git *Committer, clock func() time.Time) []*registry.Operation {
 	if clock == nil {
 		clock = time.Now
 	}
-	w := &wiki{ok: ok, dir: contentDir, git: &committer{dir: contentDir}, deps: ok != nil && contentDir != "", now: clock}
+	if git == nil {
+		git = NewCommitter(contentDir)
+	}
+	w := &wiki{ok: ok, dir: contentDir, git: git, deps: ok != nil && contentDir != "", now: clock}
 	const backend = "openknowledge"
 	return []*registry.Operation{
 		registry.New(registry.Operation{
@@ -614,14 +617,11 @@ func wikiOps(ok WikiBackend, contentDir string, clock func() time.Time) []*regis
 			if err != nil {
 				return nil, err
 			}
-			cerr := w.git.waitFor(ctx, func() bool {
+			werr := w.git.waitFor(ctx, func() bool {
 				b, ok := w.git.read(rel)
 				return ok && string(b) == a.Content
 			})
-			var cm *Commit
-			if cerr == nil {
-				cm, cerr = w.git.commit(ctx, c.Agent, subj, []string{rel})
-			}
+			cm, cerr := w.git.settle(ctx, werr, c.Agent, subj, []string{rel})
 			return writeResult(rel, res, cm, cerr), nil
 		}),
 		registry.New(registry.Operation{
@@ -667,14 +667,11 @@ func wikiOps(ok WikiBackend, contentDir string, clock func() time.Time) []*regis
 			if err != nil {
 				return nil, err
 			}
-			cerr := w.git.waitFor(ctx, func() bool {
+			werr := w.git.waitFor(ctx, func() bool {
 				b, ok := w.git.read(rel)
 				return ok && !bytes.Equal(b, before)
 			})
-			var cm *Commit
-			if cerr == nil {
-				cm, cerr = w.git.commit(ctx, c.Agent, subj, []string{rel})
-			}
+			cm, cerr := w.git.settle(ctx, werr, c.Agent, subj, []string{rel})
 			return writeResult(rel, res, cm, cerr), nil
 		}),
 		registry.New(registry.Operation{
@@ -716,11 +713,8 @@ func wikiOps(ok WikiBackend, contentDir string, clock func() time.Time) []*regis
 					rewritten = append(rewritten, d+".md")
 				}
 			}
-			cerr := w.git.waitFor(ctx, func() bool { return !w.git.exists(from) && w.git.exists(to) })
-			var cm *Commit
-			if cerr == nil {
-				cm, cerr = w.git.commit(ctx, c.Agent, subj, paths)
-			}
+			werr := w.git.waitFor(ctx, func() bool { return !w.git.exists(from) && w.git.exists(to) })
+			cm, cerr := w.git.settle(ctx, werr, c.Agent, subj, paths)
 			out := map[string]any{"from": from, "to": to, "rewritten": rewritten, "commit": cm}
 			if cerr != nil {
 				out["commit_error"] = cerr.Error()
@@ -750,11 +744,8 @@ func wikiOps(ok WikiBackend, contentDir string, clock func() time.Time) []*regis
 				return nil, err
 			}
 			subj := subject(a.Summary, "Delete "+rel, a.Trail)
-			cerr := w.git.waitFor(ctx, func() bool { return !w.git.exists(rel) })
-			var cm *Commit
-			if cerr == nil {
-				cm, cerr = w.git.commit(ctx, c.Agent, subj, []string{rel})
-			}
+			werr := w.git.waitFor(ctx, func() bool { return !w.git.exists(rel) })
+			cm, cerr := w.git.settle(ctx, werr, c.Agent, subj, []string{rel})
 			out := map[string]any{"path": rel, "deleted": true, "commit": cm}
 			if cerr != nil {
 				out["commit_error"] = cerr.Error()

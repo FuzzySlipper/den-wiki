@@ -14,11 +14,11 @@ import (
 	"time"
 )
 
-// committer makes den-wiki's content commits. OpenKnowledge never commits to
+// Committer makes den-wiki's content commits. OpenKnowledge never commits to
 // the content repo, so every write through the facade ends here: the files
 // the write changed are committed with the calling agent as author and
 // "<summary> (trail:<slug>)" as subject.
-type committer struct {
+type Committer struct {
 	dir string
 	// writes serialises whole write operations: the OK mutation, the wait
 	// for it to reach disk and its commit. Without it a second agent's write
@@ -28,6 +28,29 @@ type committer struct {
 	mu     sync.Mutex
 	// persistWait bounds how long to wait for OK to put a write on disk.
 	persistWait time.Duration
+	// pending holds facade writes whose commit failed, by path, so the UI
+	// reconciler commits them under their agent rather than as UI edits.
+	pending map[string]pendingWrite
+}
+
+type pendingWrite struct{ agent, subject string }
+
+// NewCommitter returns the committer for the content repo at dir. The wiki
+// operations and the UI reconciler must share one, so they share its lock.
+func NewCommitter(dir string) *Committer { return &Committer{dir: dir} }
+
+// remember records paths of a facade write that was not committed, for the
+// UI reconciler to commit later under the agent and subject it would have
+// had.
+func (c *Committer) remember(agent, subject string, paths []string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.pending == nil {
+		c.pending = map[string]pendingWrite{}
+	}
+	for _, p := range paths {
+		c.pending[p] = pendingWrite{agent, subject}
+	}
 }
 
 // Commit is the commit a write produced.
@@ -53,18 +76,18 @@ func authorEmail(agent string) string {
 
 func authorFor(agent string) string { return fmt.Sprintf("%s <%s>", agent, authorEmail(agent)) }
 
-func (c *committer) git(ctx context.Context, args ...string) (string, error) {
+func (c *Committer) git(ctx context.Context, args ...string) (string, error) {
 	return c.gitEnv(ctx, nil, args...)
 }
 
-func (c *committer) gitEnv(ctx context.Context, env []string, args ...string) (string, error) {
+func (c *Committer) gitEnv(ctx context.Context, env []string, args ...string) (string, error) {
 	out, err := c.gitRaw(ctx, env, args...)
 	return strings.TrimSpace(string(out)), err
 }
 
 // gitRaw returns git's output byte for byte, for formats where leading
 // whitespace matters.
-func (c *committer) gitRaw(ctx context.Context, env []string, args ...string) ([]byte, error) {
+func (c *Committer) gitRaw(ctx context.Context, env []string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "git", append([]string{
 		"-C", c.dir, "-c", "user.name=den-wiki", "-c", "user.email=den-wiki@den-wiki.local", "-c", "commit.gpgsign=false",
 	}, args...)...)
@@ -82,7 +105,7 @@ func (c *committer) gitRaw(ctx context.Context, env []string, args ...string) ([
 // disk is committed as a deletion) on top of HEAD, as agent. It builds the
 // commit in a temporary index, so nothing else staged or changed in the
 // working tree is swept in. It returns nil when the paths hold no change.
-func (c *committer) commit(ctx context.Context, agent, subject string, paths []string) (*Commit, error) {
+func (c *Committer) commit(ctx context.Context, agent, subject string, paths []string) (*Commit, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(paths) == 0 {
@@ -155,10 +178,45 @@ func (c *committer) commit(ctx context.Context, agent, subject string, paths []s
 	return cm, nil
 }
 
+// pendingWrites returns a copy of the uncommitted facade writes.
+func (c *Committer) pendingWrites() map[string]pendingWrite {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make(map[string]pendingWrite, len(c.pending))
+	for p, w := range c.pending {
+		out[p] = w
+	}
+	return out
+}
+
+// forget drops paths from the uncommitted facade writes.
+func (c *Committer) forget(paths []string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, p := range paths {
+		delete(c.pending, p)
+	}
+}
+
+// settle commits a facade write's paths once waitErr says they reached disk.
+// When the wait or the commit fails it remembers them, so the UI reconciler
+// commits them later under this agent and subject.
+func (c *Committer) settle(ctx context.Context, waitErr error, agent, subject string, paths []string) (*Commit, error) {
+	if waitErr != nil {
+		c.remember(agent, subject, paths)
+		return nil, waitErr
+	}
+	cm, err := c.commit(ctx, agent, subject, paths)
+	if err != nil {
+		c.remember(agent, subject, paths)
+	}
+	return cm, err
+}
+
 // commitIndexesLocked commits index.md files OK regenerated, as their own
 // untagged commit (the commit checks exempt generated indexes). Only those
 // paths are committed; anything else staged stays staged.
-func (c *committer) commitIndexesLocked(ctx context.Context) error {
+func (c *Committer) commitIndexesLocked(ctx context.Context) error {
 	out, err := c.gitRaw(ctx, nil, "status", "--porcelain", "-z", "--no-renames", "--untracked-files=all", "--", ":(glob)index.md", ":(glob)**/index.md")
 	if err != nil {
 		return err
@@ -183,7 +241,7 @@ func (c *committer) commitIndexesLocked(ctx context.Context) error {
 
 // waitFor polls until cond holds or the wait runs out. OK acknowledges a
 // write before the file is necessarily on disk.
-func (c *committer) waitFor(ctx context.Context, cond func() bool) error {
+func (c *Committer) waitFor(ctx context.Context, cond func() bool) error {
 	wait := c.persistWait
 	if wait == 0 {
 		wait = 10 * time.Second
@@ -194,7 +252,7 @@ func (c *committer) waitFor(ctx context.Context, cond func() bool) error {
 			return nil
 		}
 		if time.Now().After(deadline) {
-			return errors.New("OpenKnowledge accepted the change but it did not reach the content directory in time; nothing was committed")
+			return errors.New("OpenKnowledge accepted the change but it did not reach the content directory in time; den-wiki commits it in the background once it does")
 		}
 		select {
 		case <-ctx.Done():
@@ -204,14 +262,14 @@ func (c *committer) waitFor(ctx context.Context, cond func() bool) error {
 	}
 }
 
-func (c *committer) abs(rel string) string { return filepath.Join(c.dir, filepath.FromSlash(rel)) }
+func (c *Committer) abs(rel string) string { return filepath.Join(c.dir, filepath.FromSlash(rel)) }
 
-func (c *committer) read(rel string) ([]byte, bool) {
+func (c *Committer) read(rel string) ([]byte, bool) {
 	b, err := os.ReadFile(c.abs(rel))
 	return b, err == nil
 }
 
-func (c *committer) exists(rel string) bool {
+func (c *Committer) exists(rel string) bool {
 	_, err := os.Stat(c.abs(rel))
 	return err == nil
 }
