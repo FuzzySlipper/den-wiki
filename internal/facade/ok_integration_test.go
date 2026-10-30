@@ -266,6 +266,24 @@ func TestOpenKnowledgeThroughFacade(t *testing.T) {
 		}
 	})
 
+	t.Run("taxonomy lists the seed tags and what pages use", func(t *testing.T) {
+		r := must("reader", "wiki_taxonomy", map[string]any{})
+		if r["present"] != true {
+			t.Fatalf("taxonomy: %v", r)
+		}
+		names := map[string]bool{}
+		for _, it := range r["tags"].([]any) {
+			m := it.(map[string]any)
+			if m["description"] == "" {
+				t.Errorf("tag without description: %v", m)
+			}
+			names[m["name"].(string)] = true
+		}
+		if !names["software"] || !names["research-method"] {
+			t.Errorf("tags: %v", r["tags"])
+		}
+	})
+
 	t.Run("move and delete are committed", func(t *testing.T) {
 		m := must("gamma", "wiki_move", map[string]any{"from": "wiki/agent-durability.md", "to": "wiki/ai/agent-durability.md", "trail": "facade-probe", "summary": "File durability under ai"})
 		if m["commit"] == nil {

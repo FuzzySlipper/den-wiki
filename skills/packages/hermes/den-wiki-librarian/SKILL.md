@@ -68,6 +68,11 @@ instead. Keep a pass to about 15 changes; the next pass picks up the rest.
 - **orphan:** link the page from the pages it relates to, or from a hub.
 - **missing_hub:** create a `type: hub` page carrying the tag, linking every
   page in that area with a line on each.
+
+When a research trail proposes a new tag, check `wiki_taxonomy` first: it
+lists the tags that exist, their descriptions and the pages using each, and
+any tags pages already use without a taxonomy entry. Only the owner edits
+`taxonomy.yml`, so new tags go under "Proposed changes".
 - **unfolded_proposal:** read the trail's "Proposed changes". Apply the ones
   that are right; decline the rest with a reason, or pass them to the owner
   under your "Proposed changes". Then record the decision under your "Changes

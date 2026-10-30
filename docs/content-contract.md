@@ -157,6 +157,8 @@ tags:
 
 Names are slugs and appear once each. The type list is kept here rather than in
 the page schema so the content repo can grow it without a code change.
+Agents read the current taxonomy, parsed and with the pages using each name,
+through the `wiki_taxonomy` operation ([facade](facade.md)).
 
 ## Citations
 

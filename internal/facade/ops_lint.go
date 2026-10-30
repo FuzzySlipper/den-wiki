@@ -15,6 +15,8 @@ type lintArgs struct {
 
 type lintRulesArgs struct{}
 
+type taxonomyArgs struct{}
+
 func lintOps(contentDir string) []*registry.Operation {
 	return []*registry.Operation{
 		registry.New(registry.Operation{
@@ -43,6 +45,19 @@ func lintOps(contentDir string) []*registry.Operation {
 				}
 			}
 			return map[string]any{"counts": lint.Counts(fs), "findings": kept}, nil
+		}),
+		registry.New(registry.Operation{
+			Name: "wiki_taxonomy", Risk: registry.RiskRead, Tier: registry.TierDefault, Backend: "lint",
+			Description: "The page types and tags taxonomy.yml allows, each with its description, parent tag and the pages using it; plus types and tags pages use that it does not list, and the taxonomy lint findings. Use a listed tag, or propose a new one in your trail.",
+		}, func(context.Context, *registry.Call, taxonomyArgs) (any, error) {
+			if contentDir == "" {
+				return nil, &registry.Error{Code: registry.CodeBackendUnavailable, Message: "the facade has no content_dir configured, so the taxonomy cannot be read"}
+			}
+			r, err := lint.ReadTaxonomy(contentDir)
+			if err != nil {
+				return nil, &registry.Error{Code: registry.CodeBackendError, Message: fmt.Sprintf("taxonomy: %v", err)}
+			}
+			return r, nil
 		}),
 		registry.New(registry.Operation{
 			Name: "wiki_lint_rules", Risk: registry.RiskRead, Backend: "lint",

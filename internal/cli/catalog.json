@@ -1,5 +1,5 @@
 {
-  "revision": "catalog-7a47b7f1c094",
+  "revision": "catalog-8040f5df70a9",
   "operations": [
     {
       "name": "job_abandon",
@@ -708,6 +708,19 @@
           }
         }
       ]
+    },
+    {
+      "name": "wiki_taxonomy",
+      "description": "The page types and tags taxonomy.yml allows, each with its description, parent tag and the pages using it; plus types and tags pages use that it does not list, and the taxonomy lint findings. Use a listed tag, or propose a new one in your trail.",
+      "risk": "read",
+      "tier": "default",
+      "backend": "lint",
+      "needs_agent": false,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
     },
     {
       "name": "wiki_write",

@@ -179,6 +179,9 @@ func TestEveryOperationThroughTheCLI(t *testing.T) {
 	run(ExitOK, "job_abandon", "--id", id(spare), "--note", "not needed")
 	run(ExitNotFound, "job_get", "--id", "999999")
 	run(ExitNotFound, "wiki_read", "--path", "wiki/no-such-page.md")
+	if tax := run(ExitOK, "wiki_taxonomy"); len(tax["tags"].([]any)) == 0 {
+		t.Fatalf("taxonomy: %v", tax)
+	}
 	if scan := run(ExitOK, "wiki_curation_scan", "--hub_min_pages", "2"); scan["counts"] == nil {
 		t.Fatalf("curation scan: %v", scan)
 	}

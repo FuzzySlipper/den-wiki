@@ -42,6 +42,7 @@ agent identity are rejected before any backend is called.
 | `wiki_delete` | destructive | long tail | OK `delete`, then a den-wiki commit |
 | `job_create`, `job_list`, `job_claim`, `job_finish` | write/read | default | ledger |
 | `job_get`, `job_events`, `job_renew`, `job_release`, `job_edit`, `job_abandon` | read/write/destructive | long tail | ledger |
+| `wiki_taxonomy` | read | default | `taxonomy.yml` from the content dir, parsed, with tag and type use counted across `wiki/` |
 | `wiki_lint`, `wiki_lint_rules` | read | long tail | den-wiki lint on the content dir |
 | `wiki_curation_scan` | read | long tail | `lint.Curate` on the content dir plus OK `links` (dead, orphans); see [curation.md](curation.md) |
 
@@ -49,6 +50,18 @@ agent identity are rejected before any backend is called.
 `params.toolProfile: "full"`) to list everything. Long-tail operations are
 always callable by exact name. Promoting one to the default tier is a
 per-operation decision backed by usage evidence from the telemetry.
+
+`wiki_taxonomy` is its own operation rather than letting `wiki_read` open
+`taxonomy.yml` (#10508). `wiki_read` reads pages through OK, and OK serves
+Markdown only; the taxonomy is YAML in the content dir, and agents want it
+parsed, with the pages using each tag and the tags pages use without a
+taxonomy entry. It starts in the default tier because every research run
+needs it before writing a page: in #10467 all four harness runs looked for the
+tag list and found none. The result: `present`, `version`, `types` and `tags`
+(each `name`, `description`, `parent` for tags, and `pages`),
+`unlisted_types` and `unlisted_tags` (`name`, `pages`), and the `taxonomy.*`
+lint `findings`. Lint stays the enforcement: an unknown tag is still a
+`taxonomy.unknown_tag` finding, never a write error.
 
 The passthrough is a thin reshape (design open decision 1, settled by #10462):
 OK's skills, palette, config, preview, share, checkpoint and restore tools are

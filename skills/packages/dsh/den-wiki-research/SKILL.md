@@ -23,7 +23,7 @@ shows the full schema). Use whichever is available; they behave the same.
 | Find and read | `wiki_search`, `wiki_read`; long tail: `wiki_list`, `wiki_links`, `wiki_history` |
 | Ledger | `job_list`, `job_create`, `job_claim`, `job_finish`; long tail: `job_get`, `job_renew`, `job_release`, `job_abandon` |
 | Write | `wiki_write`, `wiki_edit` (each takes your run's `trail` slug) |
-| Check | `wiki_lint` (long tail) |
+| Check | `wiki_taxonomy` (allowed types and tags); long tail: `wiki_lint` |
 
 Long-tail operations are not in the default tool list but are callable by
 exact name. If your harness only offers the tools the server lists, call
@@ -173,14 +173,14 @@ again. Relative links inside captured material show up as dead links in
   the next search lands on it.
 - **Path:** `wiki/<slug>.md`, a lowercase slug naming the subject. Never a
   date, version, author or status word (`-v2`, `-new`, `-final`, `-old`).
-- **Frontmatter:** `type` (`concept`, `entity`, `comparison`, `synthesis` or
-  `hub`), `title`, `aliases`, `tags`, `sources`, `trails` (your slug),
-  `curation: unreviewed`, `confidence`, `volatility` (`hot`, `warm`, `cold`)
-  and `updated`. Tags come only from the content repo's `taxonomy.yml` (seed:
-  `meta`, `software`, `ai`, `games`, `research-method`); `wiki_lint` reports a
-  tag that is not there as `taxonomy.unknown_tag`. Leave `tags` empty rather
-  than invent one, and propose the tag under "Proposed changes". Never set
-  `verified`; only a human does.
+- **Frontmatter:** `type`, `title`, `aliases`, `tags`, `sources`, `trails`
+  (your slug), `curation: unreviewed`, `confidence`, `volatility` (`hot`,
+  `warm`, `cold`) and `updated`. `type` and `tags` come only from the content repo's
+  taxonomy: `wiki_taxonomy` lists the allowed types and tags with their
+  descriptions and the pages already using each. `wiki_lint` reports anything
+  else as `taxonomy.unknown_tag` or `taxonomy.unknown_type`. When no tag fits,
+  leave `tags` empty rather than invent one, and propose the tag under
+  "Proposed changes". Never set `verified`; only a human does.
 - **Citations:** each claim cites its source with a footnote that links to the
   capture and quotes the supporting span. The link text has at least two words:
 
