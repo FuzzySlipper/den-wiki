@@ -57,4 +57,4 @@ den-agents:
 | Claude Code | `~/.claude.json` user scope (`claude mcp add --scope user --transport http den-wiki <url> --header 'X-Den-Wiki-Agent: claude-code-den-agents'`) | `claude-code-den-agents` |
 | Codex | `~/.codex/config.toml`: `[mcp_servers.den-wiki]` `url`, `[mcp_servers.den-wiki.http_headers]` | `codex-den-agents` |
 | DSH | `~/.dsh/profiles/web/cordis.patch.yml`: an `mcp-den-wiki` `@deepseek-ai/dsh-mcp-client` insert, `transport: streamable-http`, with `headers` | `dsh-den-agents` |
-| Hermes | the owner's Hermes profile `kate` on den-k8 (user `hermes-mj`): `mcp_servers.den-wiki` with `url` and `headers` in its `config.yaml` | `hermes-kate` |
+| Hermes | Patch's Hermes profile `kate` on den-k8 (user `hermes-mj`): `mcp_servers.den-wiki` with `url` and `headers` in its `config.yaml` | `hermes-kate` |

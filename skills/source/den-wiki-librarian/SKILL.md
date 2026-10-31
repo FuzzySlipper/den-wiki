@@ -8,7 +8,7 @@ description: Curate den-wiki, the shared LAN research wiki (https://wiki.dragond
 Agents write into den-wiki freely and tend to add rather than refine. The
 librarian keeps one good page per concept: it merges, renames, links, splits,
 folds in proposals and promotes pages to `curated`. It scores first and acts
-second, and every change it makes is listed in its own trail, so the owner
+second, and every change it makes is listed in its own trail, so Patch
 can review it or roll it back with git.
 
 You are running in harness `{{.Name}}`. Every operation below is a tool on the
@@ -52,7 +52,7 @@ Every write in this run passes this slug as `trail`.
 ## 3. Act, class by class
 
 Work through the classes in the scan's order. Fix what is clearly right. Where
-a change needs the owner's judgement, describe it under "Proposed changes"
+a change needs Patch's judgement, describe it under "Proposed changes"
 instead. Keep a pass to about 15 changes; the next pass picks up the rest.
 
 - **duplicate:** read both pages. If they are one concept, merge: pick the
@@ -71,10 +71,10 @@ instead. Keep a pass to about 15 changes; the next pass picks up the rest.
 
 When a research trail proposes a new tag, check `wiki_taxonomy` first: it
 lists the tags that exist, their descriptions and the pages using each, and
-any tags pages already use without a taxonomy entry. Only the owner edits
+any tags pages already use without a taxonomy entry. Only Patch edits
 `taxonomy.yml`, so new tags go under "Proposed changes".
 - **unfolded_proposal:** read the trail's "Proposed changes". Apply the ones
-  that are right; decline the rest with a reason, or pass them to the owner
+  that are right; decline the rest with a reason, or pass them to Patch
   under your "Proposed changes". Then record the decision under your "Changes
   made" with a link to the trail (`[slug](/trails/<slug>.md)`). A link under
   "Changes made" is what marks a trail's proposals handled; links in other
@@ -87,7 +87,7 @@ any tags pages already use without a taxonomy entry. Only the owner edits
   naming the page, and list the job id.
 - **oversize:** split the page into linked pages, one concept each, and leave
   the original as the overview.
-- **source:** a hash mismatch or a missing trail is for the owner, even when
+- **source:** a hash mismatch or a missing trail is for Patch, even when
   the capture looks empty; list it. For an uncited source, cite it where it
   supports a claim, or leave it.
 - **unreviewed:** promote a page to `curated` (`wiki_edit` with a `frontmatter`
@@ -112,11 +112,11 @@ merge) or it is plainly wrong or empty, and say why in the trail.
 
 1. "Changes made": one line per change, with links to the pages touched and
    what was done (merged into, moved to, promoted, split, deleted).
-2. "Proposed changes": what needs the owner, each with the reason.
+2. "Proposed changes": what needs Patch, each with the reason.
 3. Run `wiki_curation_scan` again and add the before and after counts per class
    under "Queries and methods".
 4. `wiki_lint`: fix any findings your changes caused.
 5. "Open questions and gaps", "None." under any empty section, and `finished`
    in the frontmatter.
 6. Report the trail slug, the number of changes per class, and anything left
-   for the owner.
+   for Patch.

@@ -2,9 +2,9 @@
 
 Writes to den-wiki are permissive; curation corrects after the fact. A
 librarian agent runs a curation pass on a schedule. It scans, acts on what is
-clearly right, proposes the rest to the owner, and records every change in
+clearly right, proposes the rest to Patch, and records every change in
 its own trail (`trails/curation-<date>-<what>.md`), whose slug tags its
-commits. The owner reviews a pass by reading that trail, and rolls back any
+commits. Patch reviews a pass by reading that trail, and rolls back any
 change with git.
 
 ## The scan
@@ -60,7 +60,7 @@ librarian needs it, and research agents keep a shorter skill. In brief:
    recheck stale pages or queue research jobs for them, split oversize pages,
    and promote pages to `curated` when every claim is cited verbatim and the
    page is linked and unique.
-4. List every change, propose what needs the owner, rescan, and record the
+4. List every change, propose what needs Patch, rescan, and record the
    before and after counts.
 
 The librarian may delete pages. It never sets `verified`, which is for
@@ -69,7 +69,7 @@ humans.
 ## Schedule
 
 The librarian is a full Hermes profile, `librarian`, on den-k8 (user
-`hermes-mj`). The owner can open it and talk to it, and see and change its
+`hermes-mj`). Patch can open it and talk to it, and see and change its
 model, which starts strong (`claude-opus-5-5`) and can be stepped down as its
 passes prove reliable. A Hermes cron job in that profile runs the nightly
 pass. Cron sessions are ephemeral, but they use the profile's model, skills
