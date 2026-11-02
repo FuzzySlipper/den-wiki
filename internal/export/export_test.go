@@ -45,6 +45,7 @@ Read [the paper](https://example.org/paper) or [an uncaptured note](../sources/n
 <video src="/media/` + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" + `.mp4" controls title="A demo clip" />
 
 Use ` + "`![chart](chart.png)`" + ` never, and [a PDF](./agent-memory.assets/paper.pdf).
+See [the ` + "`wiki_read`" + ` API](tools.md) and [the ` + "`Memory`" + ` survey](../sources/survey.md); ` + "``a ` tick``" + ` and a lone ` + "`" + ` tick [in text](tools.md).
 
 ~~~markdown
 [^1]: [The survey](../sources/survey.md) "quote"
@@ -63,6 +64,8 @@ x^2
 $$
 
 [^1]: [The memory survey](../sources/survey.md) "Agents that keep an external memory answer better"
+
+[^2]: [The ` + "`Foo`" + ` paper](../sources/survey.md) "quoted evidence"
 `
 
 func fixture(t *testing.T) string {
@@ -97,6 +100,9 @@ func TestExportOnePageForOutsideReaders(t *testing.T) {
 		`<img src="` + base + `loop.png" alt="Small loop" width="600" />`,
 		"*Video not included: A demo clip.*",
 		"Use `![chart](chart.png)` never, and [a PDF](" + base + "paper.pdf).",
+		"[^2]: [The `Foo` paper](https://example.org/survey_%282026%29) \"quoted evidence\"",
+		// Code in a link label does not stop the link being rewritten.
+		"See the `wiki_read` API and [the `Memory` survey](https://example.org/survey_%282026%29); ``a ` tick`` and a lone ` tick in text.",
 		"[^1]: [The memory survey](https://example.org/survey_%282026%29) \"Agents that keep",
 		// Fenced examples are left exactly as written.
 		"~~~markdown\n[^1]: [The survey](../sources/survey.md) \"quote\"\n```mermaid\ngraph LR\n```\n~~~",

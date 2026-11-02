@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -247,28 +248,43 @@ func (e *exporter) body(body, title string) string {
 
 func titleCase(s string) string { return s[:1] + strings.ToLower(s[1:]) }
 
-// line rewrites the links, images and HTML in one line, outside code spans.
+// line rewrites the links, images and HTML in one line. Code spans are
+// masked first, so a link written inside one stays as written while a link
+// whose label holds one is still rewritten.
 func (e *exporter) line(line string) string {
-	var b strings.Builder
+	var masked strings.Builder
+	var spans []string
 	for len(line) > 0 {
 		i := strings.IndexByte(line, '`')
 		if i < 0 {
-			b.WriteString(e.text(line))
+			masked.WriteString(line)
 			break
 		}
-		b.WriteString(e.text(line[:i]))
+		masked.WriteString(line[:i])
 		line = line[i:]
 		n := len(line) - len(strings.TrimLeft(line, "`"))
 		end := closingTicks(line[n:], n)
 		if end < 0 {
-			b.WriteString(e.text(line))
-			break
+			// An unmatched run of backticks is literal text.
+			masked.WriteString(line[:n])
+			line = line[n:]
+			continue
 		}
-		b.WriteString(line[:n+end+n])
+		masked.WriteString(codeMark + strconv.Itoa(len(spans)) + codeMark)
+		spans = append(spans, line[:n+end+n])
 		line = line[n+end+n:]
 	}
-	return b.String()
+	out := e.text(masked.String())
+	return codeSpanRef.ReplaceAllStringFunc(out, func(m string) string {
+		i, _ := strconv.Atoi(strings.Trim(m, codeMark))
+		return spans[i]
+	})
 }
+
+// codeMark brackets a masked code span's index; NUL never occurs in a page.
+const codeMark = "\x00"
+
+var codeSpanRef = regexp.MustCompile("\x00[0-9]+\x00")
 
 // closingTicks finds a run of exactly n backticks in s and returns its
 // index, or -1.
