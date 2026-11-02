@@ -43,11 +43,14 @@ is `type: curation` or a `curation-` slug.
 A curation trail decides on a research trail's proposals by linking the trail
 under "Changes made"; links elsewhere in it are only references. The decision
 covers the proposals the research trail held at the commit that added the
-link. Trails are append-only, so proposals appended afterwards (by a run
-still in progress, or by a trail used as a running log) are reported again,
-with only the new lines, until a later curation trail links it under
-"Changes made" again. Outside a git work tree, or while a link is not
-committed yet, a link covers the trail as it stands.
+link: a commit after which "Changes made" links that trail more times than
+before. Rewording a decision, or mentioning the trail in another section,
+decides nothing new. Trails are append-only, so proposals appended afterwards
+(by a run still in progress, or by a trail used as a running log) are
+reported again, with only the new lines, until a curation trail adds another
+link to it under "Changes made". Outside a git work tree, or while a new
+link is not committed yet, that link covers its research trail as it stands;
+other research trails keep their committed decisions.
 
 ## The librarian
 

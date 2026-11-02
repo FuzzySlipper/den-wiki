@@ -413,26 +413,27 @@ func kindOf(t corpusDoc) string { return TrailKind(trailSlug(t.rel), t.fields) }
 func proposes(kind string) bool { return kind == KindResearch || kind == KindRoundSynthesis }
 
 // unfoldedProposals reports research and round-synthesis trails with
-// proposals no curation trail has decided on. A curation trail decides on a research trail by linking it
-// under "Changes made", and that decision covers the proposals the research
-// trail held when the link was committed. Trails are append-only, so
-// proposals added later stay open until another decision links them.
-// Outside git, a link covers whatever the trail holds now.
+// proposals no curation trail has decided on. A curation trail decides on a
+// research trail by linking it under "Changes made", and that decision covers
+// the proposals the research trail held when the link was committed. Trails
+// are append-only, so proposals added later stay open until another decision
+// links them. A decision not committed yet, or any decision outside git,
+// covers whatever the research trail holds now.
 func (c *curator) unfoldedProposals() {
-	handled, inGit := c.handledProposals()
+	handled := c.handledProposals()
 	for _, t := range c.trails {
 		if !proposes(kindOf(t)) {
 			continue
 		}
 		slug := trailSlug(t.rel)
 		open := proposalLines(sectionText(t.body, "Proposed changes"))
-		done, linked := handled[slug]
-		if linked && !inGit {
+		d, linked := handled[slug]
+		if linked && d.current {
 			continue
 		}
 		var left []string
 		for _, l := range open {
-			if !done[l] {
+			if !linked || !d.lines[l] {
 				left = append(left, l)
 			}
 		}
@@ -450,15 +451,22 @@ func (c *curator) unfoldedProposals() {
 	}
 }
 
+// decided is what curation decisions cover of one research trail: the
+// proposal lines it held at each committed decision, or, when current is
+// set, everything it holds now.
+type decided struct {
+	lines   map[string]bool
+	current bool
+}
+
 // handledProposals maps each research trail slug that a curation trail links
-// under "Changes made" to the proposal lines those decisions covered. In git,
-// a decision covers the research trail's proposals at the commit that added
-// the link. inGit is false when the content is not in a git work tree, or a
-// link is not committed yet; then a link covers the trail as it is now.
-func (c *curator) handledProposals() (handled map[string]map[string]bool, inGit bool) {
-	handled = map[string]map[string]bool{}
+// under "Changes made" to what those decisions covered. Outside git, or for a
+// decision not committed yet, a link covers that research trail as it is
+// now; other research trails keep their committed snapshots.
+func (c *curator) handledProposals() map[string]*decided {
+	handled := map[string]*decided{}
 	_, err := c.git("rev-parse", "--verify", "-q", "HEAD")
-	inGit = err == nil
+	inGit := err == nil
 	research := map[string]string{}
 	for _, t := range c.trails {
 		if proposes(kindOf(t)) {
@@ -469,63 +477,81 @@ func (c *curator) handledProposals() (handled map[string]map[string]bool, inGit 
 		if kindOf(t) != KindCuration {
 			continue
 		}
+		seen := map[string]bool{}
 		for _, m := range trailLink.FindAllStringSubmatch(sectionText(t.body, "Changes made"), -1) {
 			slug := m[1]
 			rel, ok := research[slug]
-			if !ok {
+			if !ok || seen[slug] {
 				continue
 			}
-			if handled[slug] == nil {
-				handled[slug] = map[string]bool{}
+			seen[slug] = true
+			d := handled[slug]
+			if d == nil {
+				d = &decided{lines: map[string]bool{}}
+				handled[slug] = d
 			}
 			if !inGit {
+				d.current = true
 				continue
 			}
-			if !c.decisionsInGit(t.rel, slug, rel, handled[slug]) {
-				// The link is not committed yet: count the trail as it is.
-				inGit = false
-			}
+			c.decisionsInGit(t, slug, rel, d)
 		}
 	}
-	return handled, inGit
+	return handled
 }
 
-// decisionsInGit adds to done the research trail's proposal lines at every
-// commit where curation trail cur gained a "Changes made" link to slug. It
-// reports false when no such commit exists.
-func (c *curator) decisionsInGit(cur, slug, research string, done map[string]bool) bool {
-	out, err := c.git("log", "--format=%H", "-S", slug+".md", "--", "./"+cur)
-	if err != nil {
-		return false
+// decisionsInGit adds to d the research trail's proposal lines at every
+// commit that added a "Changes made" link to slug in curation trail cur: one
+// where the section links slug more times than at the commit's parent. A
+// reference elsewhere in the trail, or a reworded decision, is not a new
+// decision. When the working tree has more such links than HEAD, a decision
+// is not committed yet, so d covers the research trail as it is now.
+func (c *curator) decisionsInGit(cur corpusDoc, slug, research string, d *decided) {
+	committed := 0
+	if head, err := c.git("show", "HEAD:./"+cur.rel); err == nil {
+		committed = decisionLinks(head, slug)
 	}
-	found := false
+	if decisionLinks(string(cur.body), slug) > committed {
+		d.current = true
+	}
+	out, err := c.git("log", "--format=%H", "--", "./"+cur.rel)
+	if err != nil {
+		return
+	}
 	for _, sha := range strings.Fields(out) {
-		curAt, err := c.git("show", sha+":./"+cur)
-		if err != nil || !linksUnderChanges(curAt, slug) {
+		at, err := c.git("show", sha+":./"+cur.rel)
+		if err != nil {
 			continue
 		}
-		found = true
+		before := 0
+		if prev, err := c.git("show", sha+"^:./"+cur.rel); err == nil {
+			before = decisionLinks(prev, slug)
+		}
+		if decisionLinks(at, slug) <= before {
+			continue
+		}
 		if resAt, err := c.git("show", sha+":./"+research); err == nil {
-			doc, err := parseDocument([]byte(resAt))
 			body := []byte(resAt)
-			if err == nil {
+			if doc, err := parseDocument(body); err == nil {
 				body = doc.body
 			}
 			for _, l := range proposalLines(sectionText(body, "Proposed changes")) {
-				done[l] = true
+				d.lines[l] = true
 			}
 		}
 	}
-	return found
 }
 
-func linksUnderChanges(trail, slug string) bool {
+// decisionLinks counts the links to trail slug under a trail's "Changes
+// made".
+func decisionLinks(trail, slug string) int {
+	n := 0
 	for _, m := range trailLink.FindAllStringSubmatch(sectionText([]byte(trail), "Changes made"), -1) {
 		if m[1] == slug {
-			return true
+			n++
 		}
 	}
-	return false
+	return n
 }
 
 // proposalLines returns the non-blank lines of a "Proposed changes" section,

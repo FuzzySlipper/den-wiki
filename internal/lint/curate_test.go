@@ -226,11 +226,49 @@ func TestUnfoldedProposalsAppendedAfterACurationDecision(t *testing.T) {
 		t.Fatalf("after appending B: %+v", got)
 	}
 
+	pendingB := func(when string) {
+		t.Helper()
+		got := scan()
+		if len(got) != 1 || got[0].Path != "trails/research-log.md" || !strings.Contains(got[0].Message, "Proposal B") {
+			t.Fatalf("%s, B should still be pending: %+v", when, got)
+		}
+	}
+
+	// A later reference to the research trail outside Changes made, or a
+	// reworded decision, is not a decision on B (R10468-2).
+	decidedA := decision("research-log", "Declined proposal A in")
+	writeContent(t, root, map[string]string{"trails/curation-2026-10-02-a.md": strings.Replace(decidedA, "## Open questions and gaps\n\nNone.", "## Open questions and gaps\n\n- Revisit [research](/trails/research-log.md).", 1)})
+	commitAll(t, root, "mention research-log elsewhere")
+	pendingB("after a reference outside Changes made")
+	writeContent(t, root, map[string]string{"trails/curation-2026-10-02-a.md": strings.Replace(decidedA, "Declined proposal A in", "Declined proposal A (duplicate) in", 1)})
+	commitAll(t, root, "reword decision A")
+	pendingB("after rewording decision A")
+
+	// An uncommitted decision on another research trail covers only that
+	// trail; research-log keeps its committed snapshot (R10468-3).
+	writeContent(t, root, map[string]string{"trails/research-other.md": curTrail("other", "- Proposal X.")})
+	commitAll(t, root, "add research-other")
+	writeContent(t, root, map[string]string{"trails/curation-2026-10-03-x.md": decision("research-other", "Declined proposal X in")})
+	pendingB("with an uncommitted decision on another trail")
+	commitAll(t, root, "decide X")
+
 	// A second decision, in a later curation trail, covers B.
 	writeContent(t, root, map[string]string{"trails/curation-2026-10-03-b.md": decision("research-log", "Declined proposal B in")})
 	commitAll(t, root, "decide B")
 	if got := scan(); len(got) != 0 {
 		t.Fatalf("after deciding B: %+v", got)
+	}
+
+	// A decision added to a committed curation trail but not committed yet
+	// covers the research trail as it is now.
+	writeContent(t, root, map[string]string{"trails/research-log.md": curTrail("log", "- Proposal A.\n- Proposal B.\n- Proposal C.")})
+	commitAll(t, root, "append C")
+	if got := scan(); len(got) != 1 || !strings.Contains(got[0].Message, "Proposal C") {
+		t.Fatalf("after appending C: %+v", got)
+	}
+	writeContent(t, root, map[string]string{"trails/curation-2026-10-03-b.md": strings.Replace(decision("research-log", "Declined proposal B in"), "## Changes made\n\n", "## Changes made\n\n- Declined proposal C in [research](/trails/research-log.md).\n", 1)})
+	if got := scan(); len(got) != 0 {
+		t.Fatalf("with C decided but not committed: %+v", got)
 	}
 }
 
