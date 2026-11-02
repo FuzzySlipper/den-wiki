@@ -194,14 +194,16 @@ again. Relative links inside captured material show up as dead links in
   the next search lands on it.
 - **Path:** `wiki/<slug>.md`, a lowercase slug naming the subject. Never a
   date, version, author or status word (`-v2`, `-new`, `-final`, `-old`).
-- **Frontmatter:** `type`, `title`, `aliases`, `tags`, `sources`, `trails`
+- **Frontmatter:** `type`, `title`, `aliases`, `tags`, `trails`
   (your slug), `curation: unreviewed`, `confidence`, `volatility` (`hot`,
   `warm`, `cold`) and `updated`. `type` and `tags` come only from the content repo's
   taxonomy: `wiki_taxonomy` lists the allowed types and tags with their
   descriptions and the pages already using each. `wiki_lint` reports anything
   else as `taxonomy.unknown_tag` or `taxonomy.unknown_type`. When no tag fits,
   leave `tags` empty rather than invent one, and propose the tag under
-  "Proposed changes". Never set `verified`; only a human does.
+  "Proposed changes". Never set `verified`; only a human does. No `sources`
+  list: the citation footnotes are the page's sources. When you edit a page
+  that still has one, remove it.
 - **Citations:** each claim cites its source with a footnote that links to the
   capture and quotes the supporting span. The link text has at least two words:
 

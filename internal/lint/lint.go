@@ -285,6 +285,9 @@ func (l *linter) checkPage(rel string, doc document) {
 			}
 		}
 	}
+	if _, ok := f["sources"]; ok {
+		l.add(newFinding(codeWikiSourcesField, rel, "the sources field is retired: a page's citation footnotes are its sources, and OpenKnowledge shows frontmatter above the page; remove it"))
+	}
 	for _, s := range stringList(f, "sources") {
 		if strings.HasPrefix(s, zoneSources+"/") && !l.exists(s) {
 			l.add(newFinding(codeRefSource, rel, "sources entry "+quote(s)+" does not exist"))

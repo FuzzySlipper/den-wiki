@@ -55,12 +55,15 @@ Every write in this run passes this slug as `trail`.
 Work through the classes in the scan's order. Fix what is clearly right. Where
 a change needs Patch's judgement, describe it under "Proposed changes"
 instead. Keep a pass to about 15 changes; the next pass picks up the rest.
+When you edit a page that still has a `sources` list in its frontmatter,
+remove it: the citation footnotes are the page's sources
+(`wiki.sources_field`).
 
 - **duplicate:** read both pages. If they are one concept, merge: pick the
   survivor (the better name, more sources and links), fold the other page's
   content into it with `wiki_edit` or `wiki_write`, add the other page's title
-  and aliases to the survivor's `aliases`, and join their `sources` and
-  `trails`. Then repoint every backlink of the other page (`wiki_links` with
+  and aliases to the survivor's `aliases`, carry over the footnotes that
+  cite what you folded in, and join their `trails`. Then repoint every backlink of the other page (`wiki_links` with
   `kinds: ["backlinks"]`) to the survivor, and `wiki_delete` the other page.
   If they are different concepts, add aliases or titles that tell them apart.
 - **naming:** `wiki_move` the page to a lowercase slug naming its subject (no

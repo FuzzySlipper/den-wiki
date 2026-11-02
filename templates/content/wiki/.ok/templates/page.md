@@ -6,7 +6,6 @@ type: concept
 title: New page
 aliases: []
 tags: []
-sources: []
 trails: []
 curation: unreviewed
 confidence: medium

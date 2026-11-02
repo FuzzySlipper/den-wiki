@@ -27,7 +27,8 @@
       "uniqueItems": true
     },
     "sources": {
-      "description": "Content-root-relative paths of sources/ files this page draws on.",
+      "description": "Retired: a page's citation footnotes are its sources (lint wiki.sources_field). Still validated on pages that carry it.",
+      "deprecated": true,
       "type": "array",
       "items": { "$ref": "#/$defs/sourcePath" },
       "uniqueItems": true

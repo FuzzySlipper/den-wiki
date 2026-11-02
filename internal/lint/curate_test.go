@@ -74,7 +74,7 @@ func curateFixture(t *testing.T) string {
 	})
 	// agent-memory cites the cited source so only uncited.md is reported
 	writeContent(t, root, map[string]string{
-		"wiki/agent-memory.md": curPage("Agent memory", "volatility: cold\nsources: [sources/cited.md]\n", "unrelated"),
+		"wiki/agent-memory.md": curPage("Agent memory", "volatility: cold\n", "unrelated.[^1]\n\n[^1]: [The cited source](/sources/cited.md) \"a\""),
 	})
 	return root
 }
@@ -344,5 +344,33 @@ func TestOversizeAccountsForStructure(t *testing.T) {
 	}
 	if strings.Join(got, ",") != "wiki/wall-of-text.md,wiki/lopsided-page.md" {
 		t.Fatalf("oversize: %v", got)
+	}
+}
+
+// A page's sources are its citation footnotes: a source named only in a
+// leftover sources field is uncited.
+func TestUncitedSourcesIgnoreTheSourcesField(t *testing.T) {
+	root := t.TempDir()
+	src := func(body string) string {
+		return "---\ntype: source\nsource_url: https://e.x/" + strings.TrimSpace(body) + "\ncaptured: 2026-10-01\nsha256: \"" + bodySHA256([]byte(body)) + "\"\ncaptured_by_trail: research-one\n---\n" + body
+	}
+	writeContent(t, root, map[string]string{
+		"taxonomy.yml":           curateTaxonomy,
+		"trails/research-one.md": curTrail("one", "None."),
+		"sources/footnoted.md":   src("f\n"),
+		"sources/listed-only.md": src("l\n"),
+		"wiki/page.md": curPage("Page", "sources: [sources/footnoted.md, sources/listed-only.md]\n",
+			"A claim.[^1]\n\n[^1]: [The footnoted source](../sources/footnoted.md) \"f\""),
+	})
+	r, err := Curate(root, CurateOptions{Now: time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var uncited []string
+	for _, it := range itemsOf(r, ClassSource) {
+		uncited = append(uncited, it.Path)
+	}
+	if strings.Join(uncited, ",") != "sources/listed-only.md" {
+		t.Fatalf("uncited: %v", uncited)
 	}
 }

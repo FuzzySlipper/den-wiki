@@ -722,9 +722,6 @@ func (c *curator) uncitedSources() {
 	cited := map[string]bool{}
 	superseded := map[string]bool{}
 	for _, p := range c.pages {
-		for _, s := range stringList(p.fields, "sources") {
-			cited[path.Clean(strings.TrimPrefix(s, "/"))] = true
-		}
 		for _, m := range mdLink.FindAllSubmatch(p.body, -1) {
 			target := string(m[1])
 			if i := strings.IndexAny(target, "#?"); i >= 0 {

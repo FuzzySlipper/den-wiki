@@ -207,7 +207,7 @@ func TestMediaThroughFacade(t *testing.T) {
 	src := "---\ntype: source\ntitle: Strike footage, frame 120\nsource_url: https://example.org/footage/strike\ncaptured: 2026-11-02\nsha256: \"" + lintHash(body) + "\"\ncaptured_by_trail: " + trail +
 		"\nmedia: " + fr["path"].(string) + "\nmedia_sha256: \"" + media.Hash(frame) + "\"\n---\n" + body
 	must("wiki_write", map[string]any{"path": "sources/media-probe/strike-frame.md", "content": src, "trail": trail})
-	page := "---\ntype: concept\ntitle: Strike imagery\ntags: [ai]\nsources: [sources/media-probe/strike-frame.md]\ntrails: [" + trail + "]\ncuration: unreviewed\nupdated: 2026-11-02\n---\n\n# Strike imagery\n\n" +
+	page := "---\ntype: concept\ntitle: Strike imagery\ntags: [ai]\ntrails: [" + trail + "]\ncuration: unreviewed\nupdated: 2026-11-02\n---\n\n# Strike imagery\n\n" +
 		"![Frame 120 of the strike footage](../sources/media-probe/strike-frame.assets/frame.png)\n\n*Figure 1. Frame 120.*\n\n" +
 		"The frame shows the strike from the north.[^1]\n\n[^1]: [The captured frame](../sources/media-probe/strike-frame.md) \"Frame 120 of the strike footage\"\n"
 	pw := must("wiki_write", map[string]any{"path": "wiki/strike-imagery.md", "content": page, "trail": trail})

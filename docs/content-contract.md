@@ -107,7 +107,7 @@ Dates are `YYYY-MM-DD` or an ISO 8601 date-time (`2026-10-29T09:15:00Z`).
 | `title` | yes | Page title |
 | `aliases` | | Alternative names. Search resolves aliases, so a new name lands on the existing page instead of spawning a duplicate |
 | `tags` | yes | Tags listed in `taxonomy.yml` only; add new tags there first. May be empty |
-| `sources` | | Content-root-relative paths under `sources/` |
+| `sources` | | Retired; see below |
 | `trails` | | Slugs of the trails that changed this page |
 | `curation` | yes | `unreviewed` or `curated` |
 | `confidence` | | `high`, `medium` or `low` |
@@ -115,6 +115,14 @@ Dates are `YYYY-MM-DD` or an ISO 8601 date-time (`2026-10-29T09:15:00Z`).
 | `volatility` | | `hot`, `warm` or `cold`; drives staleness scoring. Missing means `warm` |
 | `verified` | | Date of the last human confirmation. Only a human sets this |
 | `updated` | yes | Date of the last change |
+
+A page's sources are the `sources/` files its citation footnotes link to
+([Citations](#citations)); there is no frontmatter list of them. The
+`sources` field is retired: OpenKnowledge shows frontmatter as a panel above
+the page body, where a long list buried the text, while the footnotes sit at
+the bottom beside the claims. Lint reports a page that still carries it
+(`wiki.sources_field`, info), and still checks its entries exist
+(`ref.missing_source`) until it is removed.
 
 Two pages must not share a title or alias (`wiki.name_collision`), compared
 case-insensitively; one concept has one page.
@@ -211,9 +219,10 @@ through the `wiki_taxonomy` operation ([facade](facade.md)).
 
 ## Citations
 
-Claims cite sources with Markdown footnotes. A citation footnote links to a file
-under `sources/` and quotes the span that supports the claim, in double quotes
-(straight or curly) or as a `>` quote:
+Claims cite sources with Markdown footnotes, and those footnotes are the
+page's list of sources. A citation footnote links to a file under `sources/`
+and quotes the span that supports the claim, in double quotes (straight or
+curly) or as a `>` quote:
 
 ```markdown
 External memory makes agents more consistent.[^1]
@@ -411,11 +420,12 @@ exit code never reflects findings, because rules are findings, not write blocks.
 | `taxonomy.unknown_parent` | warning | A tag's parent is not a tag |
 | `taxonomy.unknown_tag` | warning | A page uses a tag not in the taxonomy |
 | `taxonomy.unknown_type` | warning | A page uses a type not in the taxonomy |
-| `ref.missing_source` | warning | A page's `sources` entry does not exist |
+| `ref.missing_source` | warning | A page's retired `sources` field names a file that does not exist |
 | `ref.missing_trail` | warning | A `trails` or `captured_by_trail` entry has no trail file |
 | `ref.missing_page` | warning | A `contradicts` entry does not exist |
 | `wiki.relabelled` | warning | A page is labelled old instead of merged or deleted |
 | `wiki.name_collision` | warning | Two pages share a title or alias |
+| `wiki.sources_field` | info | A page carries the retired `sources` field; its citation footnotes are its sources |
 | `citation.missing_source` | warning | A citation links to a missing source |
 | `citation.missing_quote` | warning | A citation does not quote its span |
 | `citation.one_word_text` | warning | A citation footnote starts with one-word link text |

@@ -47,6 +47,7 @@ var (
 	codeRefPage           = rule("ref.missing_page", Warning, "a contradicts entry names a wiki/ page that does not exist")
 	codeWikiRelabelled    = rule("wiki.relabelled", Warning, "a page is labelled deprecated, superseded or old instead of being deleted or merged")
 	codeWikiNameCollision = rule("wiki.name_collision", Warning, "two pages share a title or alias, so one concept has two pages")
+	codeWikiSourcesField  = rule("wiki.sources_field", Info, "a page carries the retired sources field; its citation footnotes are its sources")
 	codeCitationSource    = rule("citation.missing_source", Warning, "a citation footnote links to a sources/ file that does not exist")
 	codeCitationQuote     = rule("citation.missing_quote", Warning, "a citation footnote links to a source without quoting the supporting span")
 	codeCitationOneWord   = rule("citation.one_word_text", Warning, "a citation footnote starts with one-word link text, which OpenKnowledge misreads")

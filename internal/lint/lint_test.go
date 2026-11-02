@@ -170,7 +170,12 @@ func TestEachRuleFails(t *testing.T) {
 		{"taxonomy parent", func(t *testing.T, r string) { replace(t, r, "taxonomy.yml", "parent: software", "parent: nowhere") }, "taxonomy.unknown_parent", "taxonomy.yml"},
 		{"unknown tag", func(t *testing.T, r string) { replace(t, r, page, "tags: [ai, research-method]", "tags: [ai, gossip]") }, "taxonomy.unknown_tag", page},
 		{"unknown type", func(t *testing.T, r string) { replace(t, r, page, "type: concept", "type: essay") }, "taxonomy.unknown_type", page},
-		{"missing source", func(t *testing.T, r string) { remove(t, r, "sources/agent-memory-survey-refetch-2026-10-29.md") }, "ref.missing_source", page},
+		{"missing source", func(t *testing.T, r string) {
+			replace(t, r, page, "trails: [", "sources: [sources/no-such-capture.md]\ntrails: [")
+		}, "ref.missing_source", page},
+		{"retired sources field", func(t *testing.T, r string) {
+			replace(t, r, page, "trails: [", "sources: [sources/agent-memory-survey.md]\ntrails: [")
+		}, "wiki.sources_field", page},
 		{"missing trail on page", func(t *testing.T, r string) {
 			replace(t, r, page, "trails: [agent-memory-research-2026-10-28]", "trails: [no-such-run]")
 		}, "ref.missing_trail", page},
