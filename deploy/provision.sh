@@ -79,6 +79,22 @@ if [[ ! -d "$content/.git" ]]; then
 	runuser -u denwiki -- git -C "$content" -c user.name=den-wiki -c user.email=den-wiki@den-wiki.local \
 		commit -q -m "Seed den-wiki-content from the den-wiki content template"
 fi
+# The contract files den-wiki owns (schemas, zone rules, templates) follow the
+# template on every deploy; only they are committed, so pending edits elsewhere
+# in the content repo stay as they are. .ok/config.yml is the deployment's.
+synced=()
+while IFS= read -r rel; do
+	if ! cmp -s "$bundle/templates/content/$rel" "$content/$rel"; then
+		install -D -o denwiki -g denwiki -m 0644 "$bundle/templates/content/$rel" "$content/$rel"
+		synced+=("$rel")
+	fi
+done < <(cd "$bundle/templates/content" && find .ok/schemas */.ok -type f \( -path '*/schemas/*' -o -name frontmatter.yml -o -path '*/templates/*' \) | sed 's#^\./##' | sort)
+if ((${#synced[@]})); then
+	echo "   synced ${synced[*]}"
+	runuser -u denwiki -- git -C "$content" add -- "${synced[@]}"
+	runuser -u denwiki -- git -C "$content" -c user.name=den-wiki -c user.email=den-wiki@den-wiki.local \
+		commit -q -m "Sync den-wiki contract files from the content template" -- "${synced[@]}"
+fi
 if ! runuser -u denwiki -- git -C "$content" remote get-url nas >/dev/null 2>&1; then
 	runuser -u denwiki -- git -C "$content" remote add nas "$backup_remote"
 fi

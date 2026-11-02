@@ -103,7 +103,11 @@ deploy/bundle.sh /tmp/den-wiki-bundle.tgz
 `provision.sh` is idempotent: it installs missing Node and OK versions beside
 the old ones, points the `current` symlinks at the pinned ones, installs the
 binary, config, units and firewall, seeds the content repo only if it does not
-exist, and restarts the services. Then check `den-wiki health`.
+exist, and restarts the services. On every run it also brings the content
+repo's contract files (`.ok/schemas/`, each zone's `.ok/frontmatter.yml` and
+`.ok/templates/`) up to the template's, committing only those paths, so other
+pending edits in the content repo are left alone; `.ok/config.yml` is not
+touched. Then check `den-wiki health`.
 
 ## Upgrade OpenKnowledge
 
