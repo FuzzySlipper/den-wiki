@@ -21,7 +21,7 @@ type trailsArgs struct {
 	Kind string `json:"kind,omitempty" enum:"research,round-synthesis,calibration,curation" desc:"Only trails of this kind; default every kind."`
 }
 
-func lintOps(contentDir string) []*registry.Operation {
+func lintOps(contentDir, mediaDir string) []*registry.Operation {
 	return []*registry.Operation{
 		registry.New(registry.Operation{
 			Name: "wiki_lint", Risk: registry.RiskRead, Backend: "lint",
@@ -38,7 +38,7 @@ func lintOps(contentDir string) []*registry.Operation {
 				}
 				min = s
 			}
-			fs, err := lint.Lint(contentDir, lint.Options{Commits: a.Commits})
+			fs, err := lint.Lint(contentDir, lint.Options{Commits: a.Commits, MediaDir: mediaDir})
 			if err != nil {
 				return nil, &registry.Error{Code: registry.CodeBackendError, Message: fmt.Sprintf("lint: %v", err)}
 			}

@@ -17,6 +17,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/FuzzySlipper/den-wiki/internal/lint"
+	"github.com/FuzzySlipper/den-wiki/internal/media"
 	"github.com/FuzzySlipper/den-wiki/internal/okclient"
 	"github.com/FuzzySlipper/den-wiki/internal/registry"
 )
@@ -123,6 +124,10 @@ type wiki struct {
 	git  *Committer
 	deps bool
 	now  func() time.Time
+	// media is the media store, nil when none is configured; gitMax is the
+	// size above which wiki_attach sends a file there instead of git.
+	media  *media.Store
+	gitMax int64
 }
 
 func (w *wiki) ready() error {
@@ -265,7 +270,7 @@ func (w *wiki) linkViews(ctx context.Context, agent string, args map[string]any)
 	out := drop(res, "text")
 	if v, ok := out["deadLinks"]; ok {
 		out["deadLinks"] = filterList(v, "", func(m map[string]any) bool {
-			if noise(str(m, "target")) {
+			if noise(str(m, "target")) || w.mediaHeld(str(m, "target")) {
 				return false
 			}
 			m["sources"] = filterList(m["sources"], "", func(s map[string]any) bool { return !noise(str(s, "source")) })
@@ -362,11 +367,19 @@ func subject(summary, fallback, trail string) string {
 
 // writeResult shapes a write's result: OK's outcome and warnings, and the
 // commit den-wiki made (or why it made none).
-func writeResult(rel string, ok map[string]any, c *Commit, cerr error) map[string]any {
+func (w *wiki) writeResult(rel string, ok map[string]any, c *Commit, cerr error) map[string]any {
 	out := map[string]any{"path": rel, "commit": c}
 	if doc, _ := ok["document"].(map[string]any); doc != nil {
-		out["warnings"] = doc["warnings"]
-		out["broken_links"] = doc["brokenLinks"]
+		// OK calls links into the media store dead, and a file attached just
+		// before this write can be missing from its link index for a moment;
+		// drop broken links whose target the store or the disk holds.
+		out["warnings"] = filterList(doc["warnings"], "", func(m map[string]any) bool {
+			lt, _ := m["localTarget"].(map[string]any)
+			return str(m, "code") != "dead-link" || lt == nil || !w.targetHeld(str(lt, "resolvedTarget"), str(lt, "href"))
+		})
+		out["broken_links"] = filterList(doc["brokenLinks"], "", func(m map[string]any) bool {
+			return !w.targetHeld(str(m, "resolvedTo"), str(m, "href"))
+		})
 	}
 	if v, ok := ok["outcome"]; ok {
 		out["outcome"] = v
@@ -377,16 +390,21 @@ func writeResult(rel string, ok map[string]any, c *Commit, cerr error) map[strin
 	return out
 }
 
-func wikiOps(ok WikiBackend, contentDir string, git *Committer, clock func() time.Time) []*registry.Operation {
+func wikiOps(d Deps) []*registry.Operation {
+	ok, contentDir, git, clock := d.Wiki, d.ContentDir, d.Commits, d.Clock
 	if clock == nil {
 		clock = time.Now
 	}
 	if git == nil {
 		git = NewCommitter(contentDir)
 	}
-	w := &wiki{ok: ok, dir: contentDir, git: git, deps: ok != nil && contentDir != "", now: clock}
+	gitMax := d.MediaGitMax
+	if gitMax <= 0 {
+		gitMax = DefaultMediaGitMax
+	}
+	w := &wiki{ok: ok, dir: contentDir, git: git, deps: ok != nil && contentDir != "", now: clock, media: d.Media, gitMax: gitMax}
 	const backend = "openknowledge"
-	return []*registry.Operation{
+	return append(mediaOps(w), []*registry.Operation{
 		registry.New(registry.Operation{
 			Name: "wiki_read", Risk: registry.RiskRead, Tier: registry.TierDefault, Backend: backend,
 			Description: "Read a page, source or trail: its content, frontmatter, backlinks, outgoing links, edit history, git history (with trail-tagged subjects) and its zone's rules.",
@@ -526,6 +544,9 @@ func wikiOps(ok WikiBackend, contentDir string, git *Committer, clock func() tim
 				return nil, err
 			}
 			opts := lint.CurateOptions{Now: w.now(), OversizeWords: a.OversizeWords, HubMinPages: a.HubMinPages}
+			if w.media != nil {
+				opts.MediaDir = w.media.Dir
+			}
 			for _, d := range listOf(views["deadLinks"]) {
 				for _, src := range listOf(d["sources"]) {
 					opts.DeadLinks = append(opts.DeadLinks, lint.DeadLink{Source: str(src, "source") + ".md", Target: str(d, "target")})
@@ -622,7 +643,7 @@ func wikiOps(ok WikiBackend, contentDir string, git *Committer, clock func() tim
 				return ok && string(b) == a.Content
 			})
 			cm, cerr := w.git.settle(ctx, werr, c.Agent, subj, []string{rel})
-			return writeResult(rel, res, cm, cerr), nil
+			return w.writeResult(rel, res, cm, cerr), nil
 		}),
 		registry.New(registry.Operation{
 			Name: "wiki_edit", Risk: registry.RiskWrite, Tier: registry.TierDefault, Backend: backend,
@@ -672,7 +693,7 @@ func wikiOps(ok WikiBackend, contentDir string, git *Committer, clock func() tim
 				return ok && !bytes.Equal(b, before)
 			})
 			cm, cerr := w.git.settle(ctx, werr, c.Agent, subj, []string{rel})
-			return writeResult(rel, res, cm, cerr), nil
+			return w.writeResult(rel, res, cm, cerr), nil
 		}),
 		registry.New(registry.Operation{
 			Name: "wiki_move", Risk: registry.RiskWrite, Backend: backend,
@@ -752,7 +773,7 @@ func wikiOps(ok WikiBackend, contentDir string, git *Committer, clock func() tim
 			}
 			return out, nil
 		}),
-	}
+	}...)
 }
 
 // snake converts OK's camelCase keys to den-wiki's snake_case.

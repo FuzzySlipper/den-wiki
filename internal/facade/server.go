@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/FuzzySlipper/den-wiki/internal/ledger"
+	"github.com/FuzzySlipper/den-wiki/internal/media"
 	"github.com/FuzzySlipper/den-wiki/internal/registry"
 )
 
@@ -21,9 +22,14 @@ type Deps struct {
 	// Commits makes the content commits. Give the same one to RunUICommits
 	// so UI commits and facade writes share a lock; nil makes a private one.
 	Commits *Committer
-	Reads   ReadLog
-	Logger  *slog.Logger
-	Clock   func() time.Time
+	// Media is the media store wiki_attach puts video and very large files
+	// in, served at /media/; nil means none. MediaGitMax is the size above
+	// which a file goes there instead of git; zero means DefaultMediaGitMax.
+	Media       *media.Store
+	MediaGitMax int64
+	Reads       ReadLog
+	Logger      *slog.Logger
+	Clock       func() time.Time
 }
 
 // Operations returns every den-wiki operation over deps. The MCP handler and
@@ -31,8 +37,12 @@ type Deps struct {
 func Operations(d Deps) []*registry.Operation {
 	var ops []*registry.Operation
 	ops = append(ops, ledgerOps(d.Ledger)...)
-	ops = append(ops, wikiOps(d.Wiki, d.ContentDir, d.Commits, d.Clock)...)
-	ops = append(ops, lintOps(d.ContentDir)...)
+	ops = append(ops, wikiOps(d)...)
+	mediaDir := ""
+	if d.Media != nil {
+		mediaDir = d.Media.Dir
+	}
+	ops = append(ops, lintOps(d.ContentDir, mediaDir)...)
 	return ops
 }
 
@@ -67,7 +77,7 @@ func Version() string {
 }
 
 // NewServer returns the facade's HTTP handler: /mcp, the ledger's /v1/jobs
-// API, /healthz and /version.
+// API, /healthz, /version and, with a media store, /media/.
 func NewServer(d Deps, reg *registry.Registry) http.Handler {
 	if d.Clock == nil {
 		d.Clock = time.Now
@@ -76,6 +86,9 @@ func NewServer(d Deps, reg *registry.Registry) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/mcp", NewMCP(reg, d.Reads, d.Logger, d.Clock, version))
 	ledger.NewHandler(d.Ledger).RegisterRoutes(mux)
+	if d.Media != nil {
+		mux.Handle(media.URLPrefix, d.Media.Handler())
+	}
 	mux.HandleFunc("GET /version", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"service": "den-wiki", "commit": version, "catalog_revision": reg.Revision()})
 	})

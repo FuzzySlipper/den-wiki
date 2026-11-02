@@ -39,13 +39,17 @@ den-wiki health                    # /healthz beside the endpoint; exit 6 unless
 Fields are flags named after the schema fields; `--lease_token` and
 `--lease-token` are the same. Arrays take `a,b,c`, a JSON array, or the flag
 repeated; objects take JSON. Or pass one JSON object with `--args-json`
-(`@file`, `@-` for stdin), which cannot be mixed with field flags.
+(`@file`, `@-` for stdin), which cannot be mixed with field flags. A
+`*_base64` field given `@<path>`, as a flag or in `--args-json`, sends that
+local file base64 encoded (base64 has no `@`, so a real value is never taken
+for a path).
 
 ```bash
 den-wiki job_list --statuses open --limit 10
 den-wiki job_claim --id 12 --harness codex
 den-wiki wiki_read --path wiki/agent-memory.md --human
 den-wiki wiki_write --args-json @page.json
+den-wiki wiki_attach --page wiki/agent-memory.md --name recall.png --content-base64 @recall.png --trail agent-memory-research-2026-10-28
 ```
 
 Arguments are checked against the operation's schema before any request:

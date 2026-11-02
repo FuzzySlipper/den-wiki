@@ -40,12 +40,13 @@ server process with the unit.
 | `/etc/den-wiki/den-wiki.yml` | service config (`deploy/den-wiki.yml`) |
 | `/var/lib/den-wiki/den-wiki.db` | ledger and read log (SQLite); also `denwiki`'s home, with OK's `~/.ok` |
 | `/srv/den-wiki-content` | the content repo (branch `main`); OK's shadow history is in `.git/ok` |
+| `/srv/den-wiki-media` | the media store (video and files over 50 MiB): den-nas `/mnt/storage/den-wiki-media`, bind-mounted from the host |
 
 ## Caddy
 
 CT 104's `/etc/caddy/Caddyfile` has the block in
 `deploy/caddy/wiki.dragonden.stream.caddy`. Certificates come from the global
-Cloudflare DNS issuer. `/mcp`, `/healthz`, `/version` and `/v1/*` go to the
+Cloudflare DNS issuer. `/mcp`, `/healthz`, `/version`, `/v1/*` and `/media/*` go to the
 den-wiki service, and everything else to the OK UI. Neither has auth: the site
 is LAN-only, like `den.dragonden.stream`. OK has no user accounts and gives
 full control to whoever reaches it. The container firewall makes Caddy the
@@ -58,6 +59,29 @@ After editing the Caddyfile, apply it with
 `stream_close_delay 5m`: without it a reload closes proxied WebSockets (such
 as OK's `/collab`) synchronously, and one unresponsive client can hang the
 reload. With it, open streams survive a reload for up to 5 minutes.
+
+## Media store
+
+`wiki_attach` keeps video, and any file over `media.git_max_bytes` (50 MiB),
+out of git: the content repo would keep every byte forever, in OK's shadow
+history, the NAS mirror and every daily vzdump. The store is a directory of
+`<sha256>.<ext>` files on den-nas, which `den-wiki serve` serves at
+`/media/`. `provision.sh` refuses to run until `/srv/den-wiki-media` is a mount
+point writable by `denwiki`, and the unit has `RequiresMountsFor`, so den-wiki
+never fills the container's own disk.
+
+| Layer | Setting |
+|---|---|
+| den-nas | `/mnt/storage/den-wiki-media`, owned `100999:100991` (`denwiki`, 999:991 in the unprivileged CT, shifted by the default 100000 ID map). It is inside the existing `/mnt/storage` export to the LAN (`rw,root_squash`, AUTH_SYS) |
+| den-prox-mini | `/etc/fstab`: `192.168.1.9:/mnt/storage/den-wiki-media /mnt/den-wiki-media nfs vers=3,hard,_netdev 0 0` |
+| CT 108 | `pct set 108 -mp0 /mnt/den-wiki-media,mp=/srv/den-wiki-media,backup=0` |
+
+Set it up once, in that order (the bind mount needs a container restart if
+it does not hot-plug), then deploy. Backups: the store is not in the vzdump
+(`backup=0`); it is on the NAS with the rest of `/mnt/storage`, under the
+NAS's own backup. A store file is never changed, so a copy is a plain
+`rsync -a --ignore-existing`. Nothing deletes from the store; removing a file
+no page uses is a manual step.
 
 ## Harness hosts
 

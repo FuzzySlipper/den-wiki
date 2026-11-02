@@ -17,6 +17,7 @@ import (
 	"github.com/FuzzySlipper/den-wiki/internal/config"
 	"github.com/FuzzySlipper/den-wiki/internal/facade"
 	"github.com/FuzzySlipper/den-wiki/internal/ledger"
+	"github.com/FuzzySlipper/den-wiki/internal/media"
 	"github.com/FuzzySlipper/den-wiki/internal/okclient"
 )
 
@@ -76,7 +77,13 @@ func serve(ctx context.Context, cfg config.Server, logger *slog.Logger, ready ch
 	}
 	svc := ledger.NewService(store, time.Now, opts...)
 	commits := facade.NewCommitter(cfg.ContentDir)
-	deps := facade.Deps{Ledger: svc, ContentDir: cfg.ContentDir, Commits: commits, Reads: reads, Logger: logger, Clock: time.Now}
+	deps := facade.Deps{Ledger: svc, ContentDir: cfg.ContentDir, Commits: commits, Reads: reads, Logger: logger, Clock: time.Now, MediaGitMax: cfg.Media.GitMaxBytes}
+	if dir := cfg.Media.Dir; dir != "" {
+		if st, err := os.Stat(dir); err != nil || !st.IsDir() {
+			return fmt.Errorf("media.dir %s is not a directory; create or mount it first", dir)
+		}
+		deps.Media = &media.Store{Dir: dir}
+	}
 	if cfg.OpenKnowledge.URL != "" {
 		deps.Wiki = facade.NewOKWiki(okclient.New(cfg.OpenKnowledge.URL, cfg.OpenKnowledge.Timeout))
 	}

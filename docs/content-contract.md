@@ -62,9 +62,13 @@ nest under a `template:` key; every other key is the new document's starting
 frontmatter. (A top-level `title` would make OK treat the whole block as
 template metadata and start new documents with no frontmatter.)
 
-Lint checks only `.md` files. OK stores pasted files in `<doc>.assets/` folders
-beside the document; lint skips those folders. Other non-Markdown files are
-reported once (`zone.non_markdown`) and not checked further.
+Lint checks only `.md` files. Images and other files a document shows live in
+its `<doc>.assets/` folder beside it (`wiki/agent-memory.assets/chart.png`),
+where both OK's pasted files and `wiki_attach` put them; lint skips those
+folders, except to check a binary source's file (below). Video and very large
+files live outside the repository in the media store ([Media](#media)).
+Other non-Markdown files are reported once (`zone.non_markdown`) and not
+checked further.
 
 A file whose frontmatter is shaped for another zone (for example a trail saved
 under `wiki/`) is reported as `zone.misplaced` and not validated against the
@@ -126,11 +130,24 @@ case-insensitively; one concept has one page.
 | `sha256` | yes | Lowercase hex SHA-256 of the body, quoted |
 | `captured_by_trail` | yes | Slug of the trail whose run captured it |
 | `supersedes` | | Content-root-relative path of the earlier capture this one replaces |
+| `media` | | For a binary capture (an image, a clip, a PDF): where the file is, either a path under `sources/` (normally the source's own `<doc>.assets/` folder) or a media store reference `/media/<sha256>.<ext>` |
+| `media_sha256` | with `media` | Lowercase hex SHA-256 of the file's bytes, quoted |
 
 The **body** is every byte after the line that closes the frontmatter. Store
 the capture there unedited. When the hash does not match, lint reports the
 value it computed, so an agent capturing a source can copy it from the finding.
 Quote the hash in YAML (`sha256: "…"`) so an all-digit value stays a string.
+
+A **binary capture** is a source whose `media` names the captured file. Its
+body describes the file: what it shows, where in the original it came from
+(page, frame, timestamp), how it was obtained, and a transcript where one
+helps. Pages cite it like any source, with a footnote linking to its `.md`
+and quoting its body, and may show the file itself. Lint checks that the file
+exists (`source.media_missing`) and still matches `media_sha256`
+(`source.media_sha256_mismatch`); a store file is named by its hash, so its
+name is checked against `media_sha256`, and its presence when lint is given
+the store (`--media-dir`). Like any capture it is never edited: a new
+version of the file is a new source with `supersedes:`.
 
 `type: agent-output` marks a capture of our own agents' output, such as each
 harness's report from a calibration run, captured from its run directory. It
@@ -255,7 +272,59 @@ All commit checks look only at pages, sources and trails: the `.md` files lint
 checks in the tree. Generated `index.md` files, anything in a dot-folder such as
 `.ok/`, and OK `<doc>.assets/` folders are exempt in every zone, so regenerating
 indexes, editing zone rules or templates, or replacing an asset needs no trail
-tag and is not an edit to a source or trail.
+tag and is not an edit to a source or trail. `wiki_attach` still commits an
+attached file with its trail tag, so the file's history leads to its run.
+
+## Media
+
+Media is permissive: attach images at full size, never downscaled or
+recompressed, and use video where it helps (a strike clip, a demo, a screen
+recording). What is constrained is storage. The content repository is git,
+and git keeps every byte of every version, again in OK's shadow history, the
+NAS mirror and the container backup. So:
+
+| File | Where | How a page refers to it |
+|---|---|---|
+| Images (PNG, JPEG, GIF including animated, WebP, AVIF, SVG) and PDFs up to 50 MiB | The document's `<doc>.assets/` folder, in git | `![alt](./<doc>.assets/<file>)`, relative to the page |
+| Video (MP4 with H.264, WebM), and any file over 50 MiB | The media store, outside git: `<sha256>.<ext>` on NAS-backed storage, served at `/media/<sha256>.<ext>` | `<video src="/media/<sha256>.mp4" controls preload="metadata" />`, or `![alt](/media/<sha256>.png)` |
+
+`wiki_attach` ([facade](facade.md)) decides, writes the file, commits it when
+it goes into git, and returns its `sha256` and the snippet to paste. A store
+file's name is its hash, so the reference in git is also the hash, and the
+store never changes a file in place. The facade knows the store, so it does
+not pass on OK's "dead link" for a `/media/` file the store holds; lint
+reports a `/media/` reference the store lacks (`media.missing`, with
+`--media-dir`).
+
+Hotlinked media (`![x](https://…)`) renders but is not captured, hashed or
+durable, so it is not evidence: attach the file, or capture it as a source.
+
+## Supported formatting
+
+These render in OK's editor and survive its re-save of viewed pages byte for
+byte (checked against OK 0.88.11 in a browser; the wiki page
+`wiki/formatting-reference.md` shows each one rendered, with its source).
+Long pages should use them: a page in sections, with tables, diagrams and
+captioned full-size figures, reads better than the same length of plain
+prose, and the curation scan measures length in prose only
+([curation](curation.md)).
+
+| Construct | Write |
+|---|---|
+| Sections | `##` and `###` headings |
+| Tables, task lists, footnotes | GitHub-flavoured Markdown |
+| Callouts | `> [!NOTE]` (also `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`) |
+| Collapsible sections | `<details>` with `<summary>`, blank lines around the body |
+| Diagrams | a ` ```mermaid ` fenced block; quote labels with punctuation |
+| Math | `$…$` inline, `$$` blocks (so write a literal dollar sign as `` `$5` `` or `\$5`) |
+| Figures | `![alt](./<doc>.assets/<file>)` with an italic caption line directly below (`*Figure 1. …*`) |
+| Sized images | `<img src="./<doc>.assets/<file>" alt="…" width={600} />`, only when a width is needed: moving the page rewrites Markdown image links but not this `src` |
+| Video | `<video src="/media/<sha256>.mp4" controls preload="metadata" />` |
+
+Do not use: a bare asset name (`![x](chart.png)`, which OK suggests but which
+does not resolve); `<figure>` and `<figcaption>`, which the editor shows as
+text; an image `title` as a caption, which is not shown; or the link forms in
+[Citations](#citations).
 
 ## Delete or merge, never relabel
 
@@ -307,7 +376,7 @@ Headings match case-insensitively and may carry a number (`## 5. Dead ends`).
 ## Lint
 
 ```bash
-den-wiki lint [--format json|text] [--fail-on info|warning|error] [--commits <range>] <content-dir>
+den-wiki lint [--format json|text] [--fail-on info|warning|error] [--commits <range>] [--media-dir <dir>] <content-dir>
 den-wiki lint --list-rules
 ```
 
@@ -352,6 +421,9 @@ exit code never reflects findings, because rules are findings, not write blocks.
 | `citation.one_word_text` | warning | A citation footnote starts with one-word link text |
 | `source.sha256_mismatch` | error | A source body does not match its `sha256` |
 | `source.supersedes_missing` | warning | A `supersedes` target does not exist, or is the file itself |
+| `source.media_missing` | warning | A binary source's `media` file does not exist (store files only checked with `--media-dir`) |
+| `source.media_sha256_mismatch` | error | A binary source's `media` file does not match its `media_sha256` |
+| `media.missing` | warning | A page, source or trail refers to a `/media/` file the store does not hold (only with `--media-dir`) |
 | `trail.section_missing` | warning | A trail lacks a required section |
 | `commit.missing_trail_tag` | warning | A commit changes `wiki/` without `(trail:<slug>)`, `(ui)` or `(ui:format)` |
 | `commit.unknown_trail` | warning | A commit's trail tag names a trail absent from that commit |

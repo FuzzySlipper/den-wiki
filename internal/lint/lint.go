@@ -50,6 +50,9 @@ type Options struct {
 	// Commits is a git revision range (for example main~10..main). When set,
 	// lint also checks the commits in it; Root must be inside a git work tree.
 	Commits string
+	// MediaDir is the media store. When set, lint checks that /media/
+	// references name files it holds; without it they are not checked.
+	MediaDir string
 }
 
 // Lint checks the content directory at root.
@@ -65,7 +68,7 @@ func Lint(root string, opts Options) ([]Finding, error) {
 	if err != nil {
 		return nil, fmt.Errorf("compile schemas: %w", err)
 	}
-	l := &linter{root: root, schemas: sch, names: map[string][]string{}}
+	l := &linter{root: root, schemas: sch, names: map[string][]string{}, mediaDir: opts.MediaDir}
 	if err := l.run(); err != nil {
 		return nil, err
 	}
@@ -86,7 +89,8 @@ type linter struct {
 	taxonomy *taxonomy
 	out      []Finding
 	// names maps a normalised title or alias to the wiki pages that claim it.
-	names map[string][]string
+	names    map[string][]string
+	mediaDir string
 }
 
 func (l *linter) add(f Finding) { l.out = append(l.out, f) }
@@ -259,6 +263,7 @@ func (l *linter) checkFile(zone, rel string) error {
 		l.add(newFinding(codeFrontmatterSchema, rel, e))
 	}
 	check(rel, doc)
+	l.checkMediaRefs(rel, doc.body)
 	return nil
 }
 
@@ -433,6 +438,7 @@ func (l *linter) checkSource(rel string, doc document) {
 	if t, ok := stringField(f, "captured_by_trail"); ok && slugRe.MatchString(t) && !l.exists(zoneTrails+"/"+t+".md") {
 		l.add(newFinding(codeRefTrail, rel, "captured_by_trail "+quote(t)+" has no trails/"+t+".md"))
 	}
+	l.checkSourceMedia(rel, f)
 }
 
 // --- trails/ ---

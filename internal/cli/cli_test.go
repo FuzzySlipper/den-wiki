@@ -279,3 +279,30 @@ func TestHealthReadsHealthzBesideTheEndpoint(t *testing.T) {
 		t.Fatalf("down: exit %d %s", code, e)
 	}
 }
+
+// "@<path>" in a *_base64 field sends that local file, base64 encoded, from
+// a flag or from --args-json.
+func TestBase64FieldsReadFiles(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "chart.png")
+	if err := os.WriteFile(file, []byte("\x89PNG bytes"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	const want = "iVBORyBieXRlcw=="
+	for _, args := range [][]string{
+		{"wiki_attach", "--page", "wiki/x.md", "--name", "chart.png", "--trail", "run", "--content-base64", "@" + file},
+		{"wiki_attach", "--args-json", `{"page":"wiki/x.md","name":"chart.png","trail":"run","content_base64":"@` + file + `"}`},
+	} {
+		tr := &fakeTransport{}
+		code, _, errOut := runCLI(t, tr, append(args, "--agent", "a")...)
+		if code != ExitOK || len(tr.calls) != 1 {
+			t.Fatalf("%v: exit %d: %s", args, code, errOut)
+		}
+		if got := tr.calls[0].args["content_base64"]; got != want {
+			t.Errorf("%v: content_base64 = %v, want %s", args, got, want)
+		}
+	}
+	tr := &fakeTransport{}
+	if code, _, _ := runCLI(t, tr, "wiki_attach", "--page", "wiki/x.md", "--name", "c.png", "--trail", "run", "--content-base64", "@/no/such/file", "--agent", "a"); code != ExitUsage || len(tr.calls) != 0 {
+		t.Fatalf("missing file: exit %d, %d calls", code, len(tr.calls))
+	}
+}

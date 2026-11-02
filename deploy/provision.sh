@@ -12,6 +12,8 @@ bundle="$(cd "$(dirname "$0")/.." && pwd)"
 node_version="$(tr -d '[:space:]' < "$bundle/deploy/node-version")"
 ok_version="$(tr -d '[:space:]' < "$bundle/scripts/ok-version")"
 content=/srv/den-wiki-content
+# The media store: the den-nas share the host bind-mounts here (docs/deployment.md).
+media=/srv/den-wiki-media
 # The LAN Git host on den-nas (anonymous git://). Publishing anywhere else is
 # a deliberate, manual step.
 backup_remote=git://192.168.1.9/den-wiki-content.git
@@ -48,6 +50,18 @@ if [[ ! -x "$ok_dir/node_modules/.bin/ok" ]]; then
 	"$bundle/scripts/install-ok.sh" "$ok_dir"
 fi
 ln -sfn "$ok_dir" /opt/openknowledge/current
+
+echo "== media store"
+# den-wiki must never fill the container's own disk with video: the store
+# has to be the NAS mount, writable by denwiki.
+if ! mountpoint -q "$media"; then
+	echo "$media is not a mount point; set up the media store share first (docs/deployment.md, Media store)" >&2
+	exit 1
+fi
+if ! runuser -u denwiki -- test -w "$media"; then
+	echo "$media is not writable by denwiki; check the share's owner (docs/deployment.md, Media store)" >&2
+	exit 1
+fi
 
 echo "== den-wiki binary and scripts"
 install -m 0755 "$bundle/den-wiki" /usr/local/bin/den-wiki

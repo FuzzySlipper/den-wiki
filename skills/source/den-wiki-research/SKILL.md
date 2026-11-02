@@ -22,7 +22,7 @@ shows the full schema). Use whichever is available; they behave the same.
 |---|---|
 | Find and read | `wiki_search`, `wiki_read`; long tail: `wiki_list`, `wiki_links`, `wiki_history` |
 | Ledger | `job_list`, `job_create`, `job_claim`, `job_finish`; long tail: `job_get`, `job_renew`, `job_release`, `job_abandon` |
-| Write | `wiki_write`, `wiki_edit` (each takes your run's `trail` slug) |
+| Write | `wiki_write`, `wiki_edit`, `wiki_attach` (each takes your run's `trail` slug) |
 | Check | `wiki_taxonomy` (allowed types and tags); long tail: `wiki_lint` |
 
 Long-tail operations are not in the default tool list but are callable by
@@ -172,6 +172,15 @@ send the same bytes:
 4. Check the read-back by exact bytes (`jq -j`, not `jq -r`, which adds a
    newline).
 
+**Images, clips and other files** are captured too, so a page can cite
+imagery the way it cites text. Attach the file to the source's own path with
+`wiki_attach` (`page: sources/<site>/<name>.md`, at full size), then write the
+source with `media` set to the returned `path` (or `url` for a clip) and
+`media_sha256` to the returned `sha256`. Its body says what the file shows,
+where in the original it came from (page, frame, timestamp) and how you got
+it, plus a transcript where one helps; `sha256` covers that body as usual. A
+hotlinked image is not a capture: it is not hashed and may vanish.
+
 Sources are never edited: if the material changes, capture a new file with
 `supersedes: <old path>`. A capture you made in this run that turns out wrong,
 before any page cites it, may be removed with `wiki_delete` and captured
@@ -202,6 +211,20 @@ again. Relative links inside captured material show up as dead links in
   [^1]: [The sqlite-vec README](/sources/sqlite-vec-readme.md) "runs anywhere SQLite runs"
   ```
 
+- **Structure:** a long page uses sections, tables, callouts, Mermaid
+  diagrams, math and figures rather than a wall of prose. The content
+  contract's "Supported formatting" lists what renders, and
+  `wiki/formatting-reference.md` shows each construct with its source. Do
+  not use `<figure>`, bare asset names (`![x](chart.png)`) or image titles as
+  captions.
+- **Media:** attach images, GIFs and clips with `wiki_attach` at full size:
+  never shrink, crop or recompress to save space (storage is not scarce, and
+  agents tend to make images too small). It returns the snippet to paste;
+  caption a figure with an italic line directly below it (`*Figure 1. …*`).
+  Video and files over 50 MiB go to the media store automatically and embed
+  as `<video src="/media/<sha256>.mp4" controls preload="metadata" />`. A
+  chart you made is your own work: say how you made it in the caption or the
+  trail; a captured image is cited through its source.
 - **Links:** inline Markdown links to other pages (`[Agent memory](/wiki/agent-memory.md)`),
   never `[[wikilinks]]` or reference-style definitions.
 - **Superseded content** is merged into its successor or deleted, never

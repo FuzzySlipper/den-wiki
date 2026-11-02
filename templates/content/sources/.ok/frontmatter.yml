@@ -6,6 +6,7 @@ rules:
   - sha256 is the lowercase hex SHA-256 of the body - every byte after the line that closes the frontmatter.
   - captured_by_trail names the trail of the run that captured the source.
   - type is source for material from outside, and agent-output for output of our own agents captured from a run (a harness's calibration report, say). Agent output records the run; it is not evidence for claims about the world.
+  - An image, clip or other file is captured as a source too - attach it to the source with wiki_attach, set media to its path (or /media/ URL) and media_sha256 to its hash, and describe it in the body.
   - Filenames may carry dates and IDs; subfolders are allowed.
   - index.md files are generated. Do not edit them.
 template: source

@@ -65,7 +65,9 @@ instead. Keep a pass to about 15 changes; the next pass picks up the rest.
   If they are different concepts, add aliases or titles that tell them apart.
 - **naming:** `wiki_move` the page to a lowercase slug naming its subject (no
   dates, versions or status words). OpenKnowledge rewrites inline links.
-- **dead_link:** point the link at the right page, or remove it.
+- **dead_link:** point the link at the right page, or remove it. A
+  `media.missing` item is a `/media/` file the store does not hold: find the
+  file and attach it again, or remove the embed.
 - **orphan:** link the page from the pages it relates to, or from a hub.
 - **missing_hub:** create a `type: hub` page carrying the tag, linking every
   page in that area with a line on each.
@@ -86,10 +88,15 @@ any tags pages already use without a taxonomy entry. Only Patch edits
   against its sources. If they still hold and you changed nothing, leave the
   page and note it. If it needs fresh research, `job_create` a research job
   naming the page, and list the job id.
-- **oversize:** split the page into linked pages, one concept each, and leave
-  the original as the overview.
-- **source:** a hash mismatch or a missing trail is for Patch, even when
-  the capture looks empty; list it. For an uncited source, cite it where it
+- **oversize:** the scan counts prose only, and gives a page in three or more
+  sections twice the limit, so an item means real prose to move. Split out the
+  sections it names (or, for a page with little structure, the concepts) into
+  linked pages, and leave the original as the overview. Before splitting a
+  long unsectioned page, consider whether sections, a table or a diagram
+  would serve better.
+- **source:** a hash mismatch (`source.sha256_mismatch`,
+  `source.media_sha256_mismatch`), a missing media file or a missing trail is
+  for Patch, even when the capture looks empty; list it. For an uncited source, cite it where it
   supports a claim, or leave it.
 - **unreviewed:** promote a page to `curated` (`wiki_edit` with a `frontmatter`
   patch, `curation: curated`, and `updated`) only when all of these hold:
@@ -99,6 +106,7 @@ any tags pages already use without a taxonomy entry. Only Patch edits
     code comment may also leave out the comment markers, as long as every
     word is the source's own;
   - it is the only page for its concept, and its name follows the rule;
+  - figures are attached files (not hotlinks), shown full size with a caption;
   - it links to the related pages that exist, and they link back. A page with
     no related pages yet still qualifies; say so in the trail;
   - `confidence` is set and matches the evidence;

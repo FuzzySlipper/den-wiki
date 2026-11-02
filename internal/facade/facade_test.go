@@ -71,6 +71,13 @@ func newHarness(t *testing.T, wiki *countingWiki) *harness {
 // contentDir.
 func newHarnessWith(t *testing.T, backend WikiBackend, contentDir string) *harness {
 	t.Helper()
+	return newHarnessDeps(t, backend, contentDir, nil)
+}
+
+// newHarnessDeps is newHarnessWith with a hook to set further deps, such as
+// the media store.
+func newHarnessDeps(t *testing.T, backend WikiBackend, contentDir string, more func(*Deps)) *harness {
+	t.Helper()
 	dir := t.TempDir()
 	db := filepath.Join(dir, "den-wiki.db")
 	store, err := ledger.OpenSQLite(context.Background(), db)
@@ -90,6 +97,9 @@ func newHarnessWith(t *testing.T, backend WikiBackend, contentDir string) *harne
 	}
 	if backend != nil {
 		d.Wiki, d.ContentDir = backend, contentDir
+	}
+	if more != nil {
+		more(&d)
 	}
 	reg, err := NewRegistry(d)
 	if err != nil {

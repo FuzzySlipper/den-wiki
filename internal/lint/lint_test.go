@@ -213,6 +213,13 @@ func TestEachRuleFails(t *testing.T) {
 			p := "sources/agent-memory-survey-refetch-2026-10-29.md"
 			replace(t, r, p, "supersedes: sources/agent-memory-survey.md", "supersedes: "+p)
 		}, "source.supersedes_missing", "sources/agent-memory-survey-refetch-2026-10-29.md"},
+		{"source media missing", func(t *testing.T, r string) { remove(t, r, "sources/agent-memory-diagram.assets") }, "source.media_missing", "sources/agent-memory-diagram.md"},
+		{"source media changed", func(t *testing.T, r string) {
+			write(t, r, "sources/agent-memory-diagram.assets/diagram.png", "a different image")
+		}, "source.media_sha256_mismatch", "sources/agent-memory-diagram.md"},
+		{"source media without hash", func(t *testing.T, r string) {
+			replace(t, r, "sources/agent-memory-diagram.md", "media_sha256: \"e15f48aafa33c33d5adcfbb5edc10422d5bffda68aa5424d214df91efa29b373\"\n", "")
+		}, "frontmatter.schema", "sources/agent-memory-diagram.md"},
 		{"trail section missing", func(t *testing.T, r string) { replace(t, r, trail, "## Dead ends\n", "") }, "trail.section_missing", trail},
 		{"trail section only in code", func(t *testing.T, r string) { replace(t, r, trail, "## Dead ends\n", "```\n## Dead ends\n```\n") }, "trail.section_missing", trail},
 	}
@@ -254,6 +261,33 @@ func TestRulesAreDocumented(t *testing.T) {
 		if !strings.Contains(string(doc), "`"+r.Code+"`") {
 			t.Errorf("rule %s is not listed in docs/content-contract.md", r.Code)
 		}
+	}
+}
+
+// /media/ references are checked only when lint knows the media store.
+func TestMediaStoreReferences(t *testing.T) {
+	root := copyTree(t, validFixture)
+	store := t.TempDir()
+	held := strings.Repeat("a", 64) + ".mp4"
+	missing := strings.Repeat("b", 64) + ".mp4"
+	write(t, store, held, "clip")
+	replace(t, root, page, "# Agent memory", "# Agent memory\n\n<video src=\"/media/"+held+"\" controls />\n\n<video src=\"/media/"+missing+"\" controls />\n\n```\n/media/"+strings.Repeat("c", 64)+".mp4 in an example\n```")
+	write(t, root, "sources/strike-clip.md", "---\ntype: source\nsource_url: https://example.org/clip\ncaptured: 2026-10-28\nsha256: \""+bodySHA256([]byte("Clip.\n"))+"\"\ncaptured_by_trail: agent-memory-research-2026-10-28\nmedia: /media/"+missing+"\nmedia_sha256: \""+strings.Repeat("c", 64)+"\"\n---\nClip.\n")
+	if fs := mustLint(t, root, Options{}); hasFinding(fs, "media.missing", page) || hasFinding(fs, "source.media_missing", "sources/strike-clip.md") {
+		t.Fatalf("without a media dir nothing in the store is checked:%s", dump(fs))
+	}
+	fs := mustLint(t, root, Options{MediaDir: store})
+	var media []string
+	for _, f := range fs {
+		if f.Code == "media.missing" {
+			media = append(media, f.Message)
+		}
+	}
+	if len(media) != 1 || !strings.Contains(media[0], missing) {
+		t.Fatalf("media.missing: %v", media)
+	}
+	if !hasFinding(fs, "source.media_missing", "sources/strike-clip.md") || !hasFinding(fs, "source.media_sha256_mismatch", "sources/strike-clip.md") {
+		t.Fatalf("store-backed source:%s", dump(fs))
 	}
 }
 

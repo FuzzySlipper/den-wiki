@@ -31,6 +31,20 @@ type Server struct {
 	OpenKnowledge OpenKnowledge `yaml:"openknowledge"`
 	// UICommits commits changes made in OK's web UI. It needs content_dir.
 	UICommits UICommits `yaml:"ui_commits"`
+	// Media is the media store for video and very large files.
+	Media Media `yaml:"media"`
+}
+
+// Media configures the content-addressed media store: files wiki_attach
+// keeps out of git, served at /media/<sha256>.<ext>.
+type Media struct {
+	// Dir holds the files. It must already exist (it is normally a NAS
+	// mount, and den-wiki must not fill the directory under a missing
+	// mount). Empty disables the store.
+	Dir string `yaml:"dir"`
+	// GitMaxBytes is the size above which an attached file goes to the store
+	// instead of git; default 50 MiB. Video always goes to the store.
+	GitMaxBytes int64 `yaml:"git_max_bytes"`
 }
 
 // UICommits configures the background commits of content changes that did
@@ -96,6 +110,7 @@ func LoadServer(path string) (Server, error) {
 	}
 	s.Database = resolve(s.Database)
 	s.ContentDir = resolve(s.ContentDir)
+	s.Media.Dir = resolve(s.Media.Dir)
 	if s.OpenKnowledge.Timeout == 0 {
 		s.OpenKnowledge.Timeout = DefaultTimeout
 	}
@@ -115,6 +130,9 @@ func LoadServer(path string) (Server, error) {
 func (s Server) Validate() error {
 	if err := CheckListen(s.Listen); err != nil {
 		return err
+	}
+	if s.Media.GitMaxBytes < 0 {
+		return fmt.Errorf("media.git_max_bytes must not be negative")
 	}
 	if s.UICommits.Interval < 0 || s.UICommits.Quiet < 0 {
 		return fmt.Errorf("ui_commits interval and quiet must not be negative")

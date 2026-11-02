@@ -7,6 +7,7 @@ rules:
   - Frontmatter follows schemas/wiki-page.schema.json. Tags and type come from taxonomy.yml; add new tags there first.
   - New pages start as curation unreviewed. Only a human sets verified.
   - Cite claims with footnotes that link to a sources/ file and quote the supporting span in double quotes.
+  - Long pages use structure - sections, tables, callouts, Mermaid, math, captioned figures (see wiki/formatting-reference.md). Attach images and clips at full size with wiki_attach and paste the embed it returns; never hotlink.
   - Replace a superseded page by merging it into its successor or deleting it. Never rename it -old or label it deprecated.
   - Every commit that changes wiki/ carries (trail:<slug>) in its subject.
   - index.md files are generated. Do not edit them.

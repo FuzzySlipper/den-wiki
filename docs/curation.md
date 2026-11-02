@@ -24,13 +24,13 @@ takes dead links and orphans from OpenKnowledge's link views. It returns:
 |---|---|---|
 | `duplicate` | Two `wiki/` pages whose names are the same or nearly so. A page's names are its file name, title and aliases, reduced to word sets (lower case, stop words dropped, plurals folded); a pair counts when any two names reach Jaccard similarity 0.6 | The similarity |
 | `naming` | `naming.*` lint findings: names with dates, hashes, versions or status words | 1 |
-| `dead_link` | Links from pages and trails to missing pages (OpenKnowledge). Captured sources keep their original relative links, so their dead links are not reported | 1 |
+| `dead_link` | Links from pages and trails to missing pages (OpenKnowledge), and `/media/` references the media store does not hold (`media.missing`). Captured sources keep their original relative links, so their dead links are not reported; links to files the media store holds are not dead | 1 |
 | `orphan` | `wiki/` pages nothing links to (OpenKnowledge). Trails and sources are reached through page frontmatter, so they are not reported | 1 |
 | `missing_hub` | A tag on 5 or more pages with no `type: hub` page carrying it; `path` is `tag:<name>` | Pages with the tag |
 | `unfolded_proposal` | A research or round-synthesis trail whose "Proposed changes" holds lines no curation decision has covered (see below). Calibration and curation trails propose nothing to fold | 1 |
 | `stale` | A page whose later of `updated` and `verified` is older than its volatility half-life: hot 30 days, warm 180 (also when `volatility` is missing), cold 730 | Age divided by half-life |
-| `oversize` | A page body over 2500 words | Words divided by the limit |
-| `source` | `source.sha256_mismatch`, `source.supersedes_missing` and missing `captured_by_trail` findings; and sources no page cites (in `sources` or a body link) and none supersedes, except `type: agent-output`, which records a run rather than waiting to be cited | 1, or 0.5 for uncited |
+| `oversize` | A page with more than 2500 words of prose. Prose leaves out fenced blocks (code, Mermaid), math blocks, tables, HTML and JSX lines, image lines, headings and footnote definitions, so structure costs nothing. A page in three or more `##` sections gets twice the limit, and is still oversize if one section alone passes the limit | Prose words over the applicable limit |
+| `source` | `source.sha256_mismatch`, `source.supersedes_missing`, `source.media_missing`, `source.media_sha256_mismatch` and missing `captured_by_trail` findings; and sources no page cites (in `sources` or a body link) and none supersedes, except `type: agent-output`, which records a run rather than waiting to be cited | 1, or 0.5 for uncited |
 | `unreviewed` | Pages still `curation: unreviewed`, except run records: pages whose `trails` are all calibration runs, such as the calibration hub | Days since `updated` |
 
 `oversize_words` and `hub_min_pages` override the two thresholds. Class names

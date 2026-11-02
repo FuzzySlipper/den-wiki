@@ -35,7 +35,8 @@ const (
 	errInvalidParams  = -32602
 	errInternal       = -32603
 
-	maxMCPBody = 4 << 20
+	// maxMCPBody fits one wiki_attach of MaxAttachBytes, base64 encoded.
+	maxMCPBody = MaxAttachBytes/3*4 + 1<<20
 )
 
 // MCP serves JSON-RPC MCP over plain HTTP POST (stateless; no sessions).

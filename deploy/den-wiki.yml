@@ -6,6 +6,11 @@ content_dir: /srv/den-wiki-content
 openknowledge:
   url: http://127.0.0.1:4800/mcp
   timeout: 30s
+# Video and very large files, outside git: the den-nas share bind-mounted
+# into the container (docs/deployment.md, Media store).
+media:
+  dir: /srv/den-wiki-media
+  git_max_bytes: 52428800
 ui_commits:
   author: ui
   interval: 30s

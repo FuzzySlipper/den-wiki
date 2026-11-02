@@ -3,7 +3,7 @@
 # like den.dragonden.stream: the den-wiki service's paths, and the
 # OpenKnowledge UI, which gives full control to whoever reaches it.
 wiki.dragonden.stream {
-	@facade path /mcp /mcp/* /healthz /version /v1/*
+	@facade path /mcp /mcp/* /healthz /version /v1/* /media/*
 	handle @facade {
 		reverse_proxy 192.168.1.13:7341 {
 			stream_close_delay 5m

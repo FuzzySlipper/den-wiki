@@ -152,6 +152,13 @@ func TestEveryOperationThroughTheCLI(t *testing.T) {
 	if w["commit"] == nil {
 		t.Fatalf("write made no commit: %v", w)
 	}
+	img := filepath.Join(t.TempDir(), "probe.png")
+	if err := os.WriteFile(img, []byte("\x89PNG\r\n\x1a\nCLI probe image"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if at := run(ExitOK, "wiki_attach", "--page", "wiki/cli-probe-page.md", "--name", "probe.png", "--content-base64", "@"+img, "--trail", "cli-probe"); at["path"] != "wiki/cli-probe-page.assets/probe.png" {
+		t.Fatalf("attach: %v", at)
+	}
 	run(ExitOK, "wiki_edit", "--path", "wiki/cli-probe-page.md", "--find", "through the den-wiki CLI", "--replace", "through the den-wiki CLI, unaided", "--trail", "cli-probe")
 	run(ExitOK, "wiki_move", "--from", "wiki/cli-probe-page.md", "--to", "wiki/ai/cli-probe-page.md", "--trail", "cli-probe")
 	run(ExitOK, "wiki_delete", "--path", "wiki/ai/cli-probe-page.md", "--trail", "cli-probe", "--summary", "Remove CLI probe page")

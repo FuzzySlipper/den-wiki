@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -389,7 +390,7 @@ func buildArgs(e Entry, g globals, rest []string, stdin io.Reader) (map[string]a
 		if err := dec.Decode(&args); err != nil {
 			return nil, &registry.Error{Code: registry.CodeInvalidArguments, Message: "--args-json must be one JSON object: " + err.Error()}
 		}
-		return args, nil
+		return args, readFileFields(args)
 	}
 	for i := 0; i < len(rest); i++ {
 		a := rest[i]
@@ -437,7 +438,25 @@ func buildArgs(e Entry, g globals, rest []string, stdin io.Reader) (map[string]a
 		}
 		args[field] = v
 	}
-	return args, nil
+	return args, readFileFields(args)
+}
+
+// readFileFields replaces "@<path>" in a *_base64 field with the base64 of
+// that local file, so a file can be attached without encoding it by hand.
+// Base64 has no "@", so a real value is never mistaken for a path.
+func readFileFields(args map[string]any) error {
+	for k, v := range args {
+		s, ok := v.(string)
+		if !ok || !strings.HasSuffix(k, "_base64") || !strings.HasPrefix(s, "@") {
+			continue
+		}
+		b, err := os.ReadFile(strings.TrimPrefix(s, "@"))
+		if err != nil {
+			return &registry.Error{Code: registry.CodeInvalidArguments, Message: "--" + k + ": " + err.Error()}
+		}
+		args[k] = base64.StdEncoding.EncodeToString(b)
+	}
+	return nil
 }
 
 func flagValue(typ string, p map[string]any, val string) (any, error) {

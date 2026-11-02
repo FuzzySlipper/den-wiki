@@ -40,11 +40,29 @@
       "description": "Slug of the trail (trails/<slug>.md) whose run captured this source.",
       "$ref": "#/$defs/slug"
     },
+    "media": {
+      "description": "For a capture of an image, clip or other binary file: where the file is. Either a content-root-relative path under sources/ (normally the source's own <doc>.assets/ folder) or a media store reference /media/<sha256>.<ext>. The Markdown body then describes the file: caption, provenance, transcript.",
+      "type": "string",
+      "pattern": "^(sources/[^\\s]+|/media/[0-9a-f]{64}\\.[a-z0-9]+)$"
+    },
+    "media_sha256": {
+      "description": "Lowercase hex SHA-256 of the media file's bytes. Required with media.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
     "supersedes": {
       "description": "Content-root-relative path of the earlier capture this one replaces.",
       "type": "string",
       "pattern": "^sources/[^\\s]+$"
     }
+  },
+  "dependentRequired": {
+    "media": [
+      "media_sha256"
+    ],
+    "media_sha256": [
+      "media"
+    ]
   },
   "$defs": {
     "slug": {

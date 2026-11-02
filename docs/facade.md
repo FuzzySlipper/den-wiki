@@ -34,6 +34,7 @@ agent identity are rejected before any backend is called.
 | `wiki_read` | read | default | OK `exec cat` briefing, file from the content dir |
 | `wiki_write` | write | default | OK `write`, then a den-wiki commit |
 | `wiki_edit` | write | default | OK `edit`, then a den-wiki commit |
+| `wiki_attach` | write | default | OK `write` (asset) and a den-wiki commit, or the media store; see [Media](#media) |
 | `wiki_list` | read | long tail | OK `exec ls` |
 | `wiki_links` | read | long tail | OK `links`, filtered |
 | `wiki_history` | read | long tail | OK `history` |
@@ -75,6 +76,37 @@ lint `findings`. Lint stays the enforcement: an unknown tag is still a
 The passthrough is a thin reshape (design open decision 1, settled by #10462):
 OK's skills, palette, config, preview, share, checkpoint and restore tools are
 not exposed.
+
+## Media
+
+`wiki_attach` attaches an image, animated GIF, clip or PDF to a page, source
+or trail (`page`, which need not exist yet), at full size: the file travels
+base64 encoded (`content_base64`, up to 96 MiB; the MCP request limit is set
+from that), and den-wiki never resizes or recompresses it. The CLI reads a
+local file for `--content-base64 @<path>`.
+
+- **Into git** (images and PDFs up to `media.git_max_bytes`, default 50 MiB):
+  through OK's `write` with an `asset`, into `<doc>.assets/<name>`, then
+  committed like any write: the agent as author, `Attach <path>
+  (trail:<slug>)`. OK keeps one copy of identical bytes in a folder; when it
+  already holds them it writes nothing and answers with the existing file,
+  which the result reports (`deduplicated`).
+- **Into the media store** (video, anything over the limit, or `store:
+  media`): `<sha256>.<ext>` in `media.dir`, written through a temporary file
+  and never changed; no commit. The store is served by `den-wiki serve` at
+  `GET /media/<sha256>.<ext>` with range requests (so video seeks), the
+  file's MIME type, an immutable cache life, and a sandboxing
+  Content-Security-Policy so an SVG opened on its own runs no script.
+
+The result: `stored` (`git` or `media`), `path` or `url`, `sha256`, `bytes`,
+`mime`, the `commit`, and `embed`, the Markdown or JSX to paste (relative to
+the page for git files). Accepted types: png, jpg, jpeg, gif, webp, avif,
+svg, mp4, webm, pdf.
+
+OK knows nothing of the store and reports `/media/` images and links as
+dead. The facade drops those from write results and link views when the store
+holds the file, and also drops a write's broken link to a file that is on
+disk: OK's link index can lag a file attached a moment before.
 
 ## Agent identity
 

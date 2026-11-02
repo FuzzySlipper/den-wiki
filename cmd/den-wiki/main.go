@@ -56,6 +56,7 @@ func runLint(args []string, stdout, stderr io.Writer) int {
 	format := fs.String("format", "json", "output format: json or text")
 	failOn := fs.String("fail-on", "", "exit 1 when any finding is at or above this severity: info, warning or error")
 	commits := fs.String("commits", "", "also check the commits in this git revision range, e.g. origin/main..HEAD")
+	mediaDir := fs.String("media-dir", "", "the media store directory; checks that /media/ references name files it holds")
 	listRules := fs.Bool("list-rules", false, "print every finding code with its severity and exit")
 	fs.Usage = func() {
 		fmt.Fprint(stderr, `Usage: den-wiki lint [flags] <content-dir>
@@ -113,7 +114,7 @@ Flags:
 	}
 
 	root := positional[0]
-	findings, err := lint.Lint(root, lint.Options{Commits: *commits})
+	findings, err := lint.Lint(root, lint.Options{Commits: *commits, MediaDir: *mediaDir})
 	if err != nil {
 		fmt.Fprintf(stderr, "den-wiki lint: %v\n", err)
 		return exitRuntime

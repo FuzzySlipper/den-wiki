@@ -16,6 +16,14 @@ openknowledge:
   url: http://127.0.0.1:4800/mcp
   timeout: 30s
 
+# The media store: files wiki_attach keeps out of git (video, and anything
+# over git_max_bytes), served at /media/<sha256>.<ext>. The directory must
+# exist; den-wiki refuses to start rather than fill a directory under a
+# missing mount. Empty dir disables the store (video cannot be attached).
+media:
+  dir: /srv/den-wiki-media
+  git_max_bytes: 52428800   # 50 MiB; video always goes to the store
+
 # Background commits of content changes that did not come through the facade:
 # edits in OK's web UI, pages its editor re-saved when viewed, and facade
 # writes whose own commit failed. Needs content_dir. See docs/facade.md.

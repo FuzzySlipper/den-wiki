@@ -277,3 +277,34 @@ func TestCurateHonoursTrailKinds(t *testing.T) {
 		t.Errorf("unreviewed: %q, want every page but the calibration hub", got)
 	}
 }
+
+// Oversize counts prose only, and gives a page in sections more room unless
+// one section is itself too long.
+func TestOversizeAccountsForStructure(t *testing.T) {
+	words := func(n int) string { return strings.TrimSpace(strings.Repeat("word ", n)) }
+	section := func(name string, n int) string { return "## " + name + "\n\n" + words(n) + "\n\n" }
+	structure := "```mermaid\n" + strings.Repeat("A --> B\n", 200) + "```\n\n| a | b |\n|---|---|\n| " + words(300) + " | x |\n\n$$\n" + words(300) + "\n$$\n\n<video src=\"/media/x.mp4\" />\n\n![" + words(50) + "](./x.assets/a.png)\n\n[^1]: " + words(300) + "\n"
+	root := t.TempDir()
+	writeContent(t, root, map[string]string{
+		"taxonomy.yml": curateTaxonomy,
+		// 90 words of prose and a lot of structure: not oversize at 100.
+		"wiki/rich-page.md": curPage("Rich page", "", words(90)+"\n\n"+structure),
+		// 150 words in one block: oversize.
+		"wiki/wall-of-text.md": curPage("Wall of text", "", words(150)),
+		// 180 words over three sections of 60: under twice the limit.
+		"wiki/sectioned-page.md": curPage("Sectioned page", "", section("One", 60)+section("Two", 60)+section("Three", 60)),
+		// Three sections, one of 120: that section is over the limit.
+		"wiki/lopsided-page.md": curPage("Lopsided page", "", section("One", 20)+section("Two", 120)+section("Three", 20)),
+	})
+	r, err := Curate(root, CurateOptions{Now: time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC), OversizeWords: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, it := range itemsOf(r, ClassOversize) {
+		got = append(got, it.Path)
+	}
+	if strings.Join(got, ",") != "wiki/wall-of-text.md,wiki/lopsided-page.md" {
+		t.Fatalf("oversize: %v", got)
+	}
+}

@@ -1,5 +1,5 @@
 {
-  "revision": "catalog-349012427743",
+  "revision": "catalog-ad07c8d6bf36",
   "operations": [
     {
       "name": "job_abandon",
@@ -384,6 +384,71 @@
         ],
         "type": "object"
       }
+    },
+    {
+      "name": "wiki_attach",
+      "description": "Attach an image, GIF, video clip or PDF to a page, source or trail, at full size. Images go into git beside the page (<doc>.assets/) and are committed with (trail:<slug>); video and very large files go to the content-addressed media store (/media/<sha256>.<ext>), outside git. Returns the sha256 and an embed snippet to paste into the page.",
+      "risk": "write",
+      "tier": "default",
+      "backend": "openknowledge",
+      "needs_agent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "alt": {
+            "description": "Alt text or link text for the returned embed snippet; default the name.",
+            "type": "string"
+          },
+          "content_base64": {
+            "description": "The file, base64 encoded, at full size: never downscale or recompress. Up to 96 MiB. On the CLI, @<path> reads and encodes a local file.",
+            "type": "string"
+          },
+          "name": {
+            "description": "File name: a lowercase slug with an accepted extension (png, jpg, jpeg, gif, webp, avif, svg, mp4, webm, pdf), e.g. strike-map.png.",
+            "type": "string"
+          },
+          "page": {
+            "description": "The page, source or trail the file belongs to, e.g. wiki/agent-memory.md. It need not exist yet. Files kept in git go in its <doc>.assets/ folder.",
+            "type": "string"
+          },
+          "store": {
+            "description": "auto (default): video and files over the git limit go to the media store, the rest to git. media forces the media store; git refuses video and files over the limit.",
+            "enum": [
+              "auto",
+              "git",
+              "media"
+            ],
+            "type": "string"
+          },
+          "summary": {
+            "description": "Commit subject before the trail tag; default \"Attach <path>\".",
+            "type": "string"
+          },
+          "trail": {
+            "description": "Slug of your run's trail (trails/<slug>.md).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content_base64",
+          "name",
+          "page",
+          "trail"
+        ],
+        "type": "object"
+      },
+      "examples": [
+        {
+          "description": "Attach a chart to a page",
+          "arguments": {
+            "alt": "Recall by memory store",
+            "content_base64": "<base64>",
+            "name": "recall-by-store.png",
+            "page": "wiki/agent-memory.md",
+            "trail": "agent-memory-research-2026-10-28"
+          }
+        }
+      ]
     },
     {
       "name": "wiki_audit",

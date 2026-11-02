@@ -39,7 +39,7 @@ var CurationClasses = []struct{ Class, Meaning string }{
 	{ClassMissingHub, "A tag carried by enough pages to need a hub page, with no hub page for it"},
 	{ClassUnfoldedProposal, "A research or round-synthesis trail's \"Proposed changes\" that no curation trail's \"Changes made\" links to yet"},
 	{ClassStale, "A page older than its volatility half-life since it was last updated or verified"},
-	{ClassOversize, "A page whose body is long enough to split"},
+	{ClassOversize, "A page with enough prose to split: over the limit, or for a page in sections, over twice the limit or one section over it"},
 	{ClassSource, "A source that fails its hash, names a missing trail or superseded file, or that no page cites (agent output excepted)"},
 	{ClassUnreviewed, "A page still marked curation: unreviewed, unless only calibration runs have changed it"},
 }
@@ -69,6 +69,8 @@ type CurateOptions struct {
 	// DuplicateSimilarity is the name similarity (0 to 1) at which two pages
 	// count as near-duplicates; default 0.6.
 	DuplicateSimilarity float64
+	// MediaDir is the media store, for lint's /media/ checks.
+	MediaDir string
 }
 
 // CurationItem is one thing for the librarian to look at. Score orders items
@@ -114,7 +116,7 @@ func Curate(root string, opts CurateOptions) (CurationReport, error) {
 	if opts.DuplicateSimilarity <= 0 {
 		opts.DuplicateSimilarity = 0.6
 	}
-	findings, err := Lint(root, Options{})
+	findings, err := Lint(root, Options{MediaDir: opts.MediaDir})
 	if err != nil {
 		return CurationReport{}, err
 	}
@@ -322,7 +324,10 @@ func (c *curator) fromLint(fs []Finding) {
 		switch {
 		case strings.HasPrefix(f.Code, "naming."):
 			c.add(CurationItem{Class: ClassNaming, Path: f.Path, Score: 1, Message: f.Code + ": " + f.Message})
+		case f.Code == "media.missing":
+			c.add(CurationItem{Class: ClassDeadLink, Path: f.Path, Score: 1, Message: f.Code + ": " + f.Message})
 		case f.Code == "source.sha256_mismatch" || f.Code == "source.supersedes_missing",
+			f.Code == "source.media_missing" || f.Code == "source.media_sha256_mismatch",
 			f.Code == "ref.missing_trail" && strings.HasPrefix(f.Path, zoneSources+"/"):
 			c.add(CurationItem{Class: ClassSource, Path: f.Path, Score: 1, Message: f.Code + ": " + f.Message})
 		}
@@ -619,16 +624,69 @@ func (c *curator) staleness() {
 
 // --- oversize ---
 
-func (c *curator) oversize() {
-	for _, p := range c.pages {
-		words := len(bytes.Fields(p.body))
-		if words <= c.opts.OversizeWords {
+// structuredSections is how many "## " sections make a page structured:
+// such a page gets twice the word limit, but any one section over the limit
+// is still worth splitting out.
+const structuredSections = 3
+
+// proseWords counts the words of prose in a body, overall and per "## "
+// section. Fenced blocks (code, Mermaid, previews), math blocks, tables,
+// HTML and JSX lines, image lines, headings and footnote definitions are
+// structure, not prose, so long pages that use them are not penalised.
+func proseWords(body []byte) (total int, sections []int) {
+	inFence, inMath := false, false
+	cur := -1
+	for _, line := range strings.Split(string(body), "\n") {
+		t := strings.TrimSpace(line)
+		switch {
+		case fenceLine.MatchString(line):
+			inFence = !inFence
+			continue
+		case inFence:
+			continue
+		case t == "$$":
+			inMath = !inMath
+			continue
+		case inMath:
+			continue
+		case strings.HasPrefix(line, "## "):
+			sections = append(sections, 0)
+			cur = len(sections) - 1
+			continue
+		case strings.HasPrefix(t, "#"), strings.HasPrefix(t, "|"), strings.HasPrefix(t, "<"),
+			strings.HasPrefix(t, "!["), strings.HasPrefix(t, "[^"):
 			continue
 		}
-		c.add(CurationItem{
-			Class: ClassOversize, Path: p.rel, Score: round2(float64(words) / float64(c.opts.OversizeWords)),
-			Message: fmt.Sprintf("%d words (limit %d); split it into linked pages", words, c.opts.OversizeWords),
-		})
+		n := len(strings.Fields(t))
+		total += n
+		if cur >= 0 {
+			sections[cur] += n
+		}
+	}
+	return total, sections
+}
+
+func (c *curator) oversize() {
+	limit := c.opts.OversizeWords
+	for _, p := range c.pages {
+		words, sections := proseWords(p.body)
+		largest := 0
+		for _, n := range sections {
+			largest = max(largest, n)
+		}
+		var score float64
+		var msg string
+		if len(sections) >= structuredSections {
+			score = math.Max(float64(words)/float64(2*limit), float64(largest)/float64(limit))
+			msg = fmt.Sprintf("%d words of prose in %d sections (limit %d for a sectioned page, %d per section; the largest has %d); split the largest sections into linked pages", words, len(sections), 2*limit, limit, largest)
+		} else {
+			score = float64(words) / float64(limit)
+			msg = fmt.Sprintf("%d words of prose (limit %d) with fewer than %d sections; give it sections, or split it into linked pages", words, limit, structuredSections)
+		}
+		if score <= 1 {
+			continue
+		}
+		c.add(CurationItem{Class: ClassOversize, Path: p.rel, Score: round2(score), Message: msg})
 	}
 }
 

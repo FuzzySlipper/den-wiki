@@ -2,6 +2,8 @@
 Description=den-wiki service: MCP facade, ledger API and content commits
 After=network-online.target ok-wiki.service
 Wants=network-online.target ok-wiki.service
+# The media store is a NAS share bind-mounted into the container.
+RequiresMountsFor=/srv/den-wiki-media
 
 [Service]
 User=denwiki
