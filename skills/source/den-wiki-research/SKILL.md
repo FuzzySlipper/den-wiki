@@ -24,6 +24,7 @@ shows the full schema). Use whichever is available; they behave the same.
 | Ledger | `job_list`, `job_create`, `job_claim`, `job_finish`; long tail: `job_get`, `job_renew`, `job_release`, `job_abandon` |
 | Write | `wiki_write`, `wiki_edit`, `wiki_attach` (each takes your run's `trail` slug) |
 | Check | `wiki_taxonomy` (allowed types and tags); long tail: `wiki_lint` |
+| Share | long tail: `wiki_publish`, one page to Patch's blog, only when he asks; preview first (see den-wiki-lookup) |
 
 Long-tail operations are not in the default tool list but are callable by
 exact name. If your harness only offers the tools the server lists, call

@@ -5,6 +5,8 @@
 - `/mcp`: the den-wiki MCP endpoint (JSON-RPC over HTTP POST, stateless, JSON
   responses, no SSE);
 - `/v1/jobs`: the research ledger's HTTP API ([ledger.md](ledger.md));
+- `/v1/export` and `/v1/export/asset`: one wiki page rendered for sharing,
+  and its images ([Sharing a page](#sharing-a-page));
 - `/healthz` (ledger and OpenKnowledge checks) and `/version` (commit and
   catalog revision).
 
@@ -47,6 +49,8 @@ agent identity are rejected before any backend is called.
 | `wiki_lint`, `wiki_lint_rules` | read | long tail | den-wiki lint on the content dir |
 | `wiki_curation_scan` | read | long tail | `lint.Curate` on the content dir plus OK `links` (dead, orphans); see [curation.md](curation.md) |
 | `wiki_trails` | read | long tail | `lint.ListTrails` on the content dir: trails by kind |
+| `wiki_export` | read | long tail | `export.Export` on the content dir: one page rendered for outside readers |
+| `wiki_publish` | write | long tail | den-services doc-publish; see [Sharing a page](#sharing-a-page) |
 
 `tools/list` lists the default tier. Send `X-Den-Wiki-Tool-Profile: full` (or
 `params.toolProfile: "full"`) to list everything. Long-tail operations are
@@ -107,6 +111,50 @@ OK knows nothing of the store and reports `/media/` images and links as
 dead. The facade drops those from write results and link views when the store
 holds the file, and also drops a write's broken link to a file that is on
 disk: OK's link index can lag a file attached a moment before.
+
+## Sharing a page
+
+`wiki_publish` shares one wiki page outside the LAN as a post on Patch's blog,
+the way Den documents are shared with "share via blog" (#10550). It replaces
+OK's Share button for this: that pushes the whole repository to GitHub, and
+its links send readers to download the OK app. OK has no setting to hide the
+button, and den-wiki never patches OK, so sharing is an agent and CLI action
+(`den-wiki wiki_publish --path wiki/x.md`), not a button.
+
+den-services doc-publish stays the only writer of the blog repository. den-wiki
+renders the page and asks:
+
+1. `wiki_publish` checks the page exports, then posts
+   `{"source": {"wiki_page": "wiki/x.md"}, "options": {...}, "requested_by": <agent>}`
+   to doc-publish's `/preview` (default) or, with `publish: true`, its
+   publications endpoint (`publish.doc_publish_url`). doc-publish's answer is
+   the result; its errors come back as `backend_error`, or `conflict` for a
+   blog repository that fails its safety checks.
+2. doc-publish fetches the page itself from `GET /v1/export?page=wiki/x.md&asset_base=<url>`
+   and each listed image from `GET /v1/export/asset?page=wiki/x.md&name=<name>`
+   (bytes, with `X-Content-SHA256`), copies the images beside the post and
+   commits both.
+
+The export (`internal/export`, also the `wiki_export` operation) is the page
+alone, never the pages it links to. It returns `path`, `title`, `updated`,
+`markdown`, `assets` (`name`, `path`, `sha256`, `size`, `content_type`) and
+`warnings`. Only `wiki/` pages export. The Markdown:
+
+- drops the frontmatter, and a first `# heading` that repeats the title (the
+  blog layout prints it);
+- links citations, and any other link to a source, to the source's
+  `source_url`; a source without one leaves its link text, with a warning;
+- makes links to other wiki pages and trails plain text: they are LAN-only;
+- lists the images and files (PDF) the page shows from the content repo as
+  assets, named uniquely within the page, and points their links at
+  `asset_base` + name; `width={600}` becomes `width="600"`;
+- replaces a video with an italic "Video not included" line, with a warning:
+  the media store is LAN-only and clips are large;
+- turns `> [!NOTE]` callouts into `> **Note:**`, since the blog's Markdown
+  (kramdown) has no callouts;
+- leaves fenced code and code spans exactly as written, and warns when the
+  page has a Mermaid diagram or display math, which the blog shows as source
+  unless its theme renders them.
 
 ## Agent identity
 

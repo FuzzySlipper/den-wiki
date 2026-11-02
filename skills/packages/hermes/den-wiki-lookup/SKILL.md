@@ -29,3 +29,11 @@ queued.
 
 Do not call `wiki_write`, `wiki_edit`, `wiki_move`, `wiki_delete` or any
 `job_*` operation that changes a job from this skill.
+
+Sharing a page outside the LAN is the one exception, and only when Patch asks
+for it: `wiki_publish` (long tail) posts that one page to his blog through
+den-services doc-publish, with its images, citations linked to the original
+sources and links to other wiki pages as plain text. Call it without
+`publish` first, show Patch the preview's post URL and warnings, and call it
+again with `publish: true` only when he confirms. Never use OpenKnowledge's
+Share button or share links for this.

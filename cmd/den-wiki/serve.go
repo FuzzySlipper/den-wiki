@@ -77,7 +77,7 @@ func serve(ctx context.Context, cfg config.Server, logger *slog.Logger, ready ch
 	}
 	svc := ledger.NewService(store, time.Now, opts...)
 	commits := facade.NewCommitter(cfg.ContentDir)
-	deps := facade.Deps{Ledger: svc, ContentDir: cfg.ContentDir, Commits: commits, Reads: reads, Logger: logger, Clock: time.Now, MediaGitMax: cfg.Media.GitMaxBytes}
+	deps := facade.Deps{Ledger: svc, ContentDir: cfg.ContentDir, Commits: commits, Reads: reads, Logger: logger, Clock: time.Now, MediaGitMax: cfg.Media.GitMaxBytes, PublishURL: cfg.Publish.DocPublishURL, PublishTimeout: cfg.Publish.Timeout}
 	if dir := cfg.Media.Dir; dir != "" {
 		if st, err := os.Stat(dir); err != nil || !st.IsDir() {
 			return fmt.Errorf("media.dir %s is not a directory; create or mount it first", dir)

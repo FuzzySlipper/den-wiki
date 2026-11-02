@@ -24,6 +24,12 @@ media:
   dir: /srv/den-wiki-media
   git_max_bytes: 52428800   # 50 MiB; video always goes to the store
 
+# wiki_publish shares one page on the blog through den-services doc-publish,
+# which fetches it back from this den-wiki's /v1/export. Empty disables it.
+publish:
+  doc_publish_url: https://den.dragonden.stream/api/v1/blog/publications
+  timeout: 60s   # a publish fetches the page and images, commits and pushes
+
 # Background commits of content changes that did not come through the facade:
 # edits in OK's web UI, pages its editor re-saved when viewed, and facade
 # writes whose own commit failed. Needs content_dir. See docs/facade.md.

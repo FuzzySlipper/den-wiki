@@ -1,5 +1,5 @@
 {
-  "revision": "catalog-ad07c8d6bf36",
+  "revision": "catalog-e7943e2672b6",
   "operations": [
     {
       "name": "job_abandon",
@@ -568,6 +568,31 @@
       }
     },
     {
+      "name": "wiki_export",
+      "description": "Render one wiki page for readers outside the LAN, as wiki_publish shares it: Markdown without frontmatter, citations linked to the original sources, links to other wiki pages as plain text, and the images it shows listed as assets. Warnings name what is left out (video) or may not render (Mermaid, math).",
+      "risk": "read",
+      "tier": "long_tail",
+      "backend": "export",
+      "needs_agent": false,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_base": {
+            "description": "URL prefix for the page's images in the Markdown; default the bare file names.",
+            "type": "string"
+          },
+          "path": {
+            "description": "The wiki page, e.g. wiki/agent-memory.md. Only wiki/ pages can be shared.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      }
+    },
+    {
       "name": "wiki_history",
       "description": "Edit history of a page, source or trail from OpenKnowledge, newest first, attributed per agent.",
       "risk": "read",
@@ -730,6 +755,61 @@
         ],
         "type": "object"
       }
+    },
+    {
+      "name": "wiki_publish",
+      "description": "Share one wiki page outside the LAN as a post on Patch's blog, through den-services doc-publish (the same blog as Den's 'share via blog'). Only that page goes, with its images; links to other wiki pages become plain text and citations link to the original sources. Previews by default; publish only when Patch asks, with publish true. Publishing the same page again updates its post.",
+      "risk": "write",
+      "tier": "long_tail",
+      "backend": "doc-publish",
+      "needs_agent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "The wiki page to share, e.g. wiki/agent-memory.md. Only that page is shared, never the pages it links to.",
+            "type": "string"
+          },
+          "publish": {
+            "description": "Publish the post. Default false previews it without writing the blog: preview first and show Patch the result.",
+            "type": "boolean"
+          },
+          "slug": {
+            "description": "Post URL slug; default from the title.",
+            "type": "string"
+          },
+          "tags": {
+            "description": "Post tags.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "description": "Post title; default the page title.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "examples": [
+        {
+          "description": "Preview the post",
+          "arguments": {
+            "path": "wiki/agent-memory.md"
+          }
+        },
+        {
+          "description": "Publish it",
+          "arguments": {
+            "path": "wiki/agent-memory.md",
+            "publish": true
+          }
+        }
+      ]
     },
     {
       "name": "wiki_read",

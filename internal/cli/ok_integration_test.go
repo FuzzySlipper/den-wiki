@@ -94,9 +94,16 @@ func TestEveryOperationThroughTheCLI(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = reads.Close() })
+	// doc-publish stands in for den-services: wiki_publish only asks it.
+	docPublish := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"status":"previewed","post_path":"_posts/2026-11-02-agent-memory.md"}`)
+	}))
+	t.Cleanup(docPublish.Close)
 	d := facade.Deps{
-		Ledger: ledger.NewService(store, time.Now, ledger.WithContentDir(stack.ContentDir)),
-		Wiki:   facade.NewOKWiki(okclient.New(stack.MCP, 30*time.Second)), ContentDir: stack.ContentDir,
+		PublishURL: docPublish.URL + "/v1/blog/publications",
+		Ledger:     ledger.NewService(store, time.Now, ledger.WithContentDir(stack.ContentDir)),
+		Wiki:       facade.NewOKWiki(okclient.New(stack.MCP, 30*time.Second)), ContentDir: stack.ContentDir,
 		Reads: reads, Logger: slog.New(slog.NewJSONHandler(io.Discard, nil)), Clock: time.Now,
 	}
 	reg, err := facade.NewRegistry(d)
@@ -196,6 +203,12 @@ func TestEveryOperationThroughTheCLI(t *testing.T) {
 		t.Fatalf("trails: %v", tr)
 	}
 	run(ExitUsage, "wiki_trails", "--kind", "survey")
+	if ex := run(ExitOK, "wiki_export", "--path", "wiki/agent-memory.md"); !strings.Contains(mustJSON(ex), "markdown") {
+		t.Fatalf("export: %v", ex)
+	}
+	if pub := run(ExitOK, "wiki_publish", "--path", "wiki/agent-memory.md"); pub["status"] != "previewed" {
+		t.Fatalf("publish preview: %v", pub)
+	}
 	if scan := run(ExitOK, "wiki_curation_scan", "--hub_min_pages", "2"); scan["counts"] == nil {
 		t.Fatalf("curation scan: %v", scan)
 	}

@@ -11,6 +11,11 @@ openknowledge:
 media:
   dir: /srv/den-wiki-media
   git_max_bytes: 52428800
+# wiki_publish: den-services doc-publish, which fetches the page back from
+# https://wiki.dragonden.stream/v1/export (docs/facade.md, Sharing a page).
+publish:
+  doc_publish_url: https://den.dragonden.stream/api/v1/blog/publications
+  timeout: 60s
 ui_commits:
   author: ui
   interval: 30s

@@ -47,7 +47,9 @@ server process with the unit.
 CT 104's `/etc/caddy/Caddyfile` has the block in
 `deploy/caddy/wiki.dragonden.stream.caddy`. Certificates come from the global
 Cloudflare DNS issuer. `/mcp`, `/healthz`, `/version`, `/v1/*` and `/media/*` go to the
-den-wiki service, and everything else to the OK UI. Neither has auth: the site
+den-wiki service, and everything else to the OK UI. den-services
+doc-publish (CT 106) fetches pages shared with `wiki_publish` through this
+block, from `/v1/export`. Neither has auth: the site
 is LAN-only, like `den.dragonden.stream`. OK has no user accounts and gives
 full control to whoever reaches it. The container firewall makes Caddy the
 only way in, so a login can be added back in one place: a `basic_auth` block

@@ -27,9 +27,14 @@ type Deps struct {
 	// which a file goes there instead of git; zero means DefaultMediaGitMax.
 	Media       *media.Store
 	MediaGitMax int64
-	Reads       ReadLog
-	Logger      *slog.Logger
-	Clock       func() time.Time
+	// PublishURL is doc-publish's publications endpoint for wiki_publish;
+	// empty disables it. PublishTimeout bounds one call; zero means
+	// DefaultPublishTimeout.
+	PublishURL     string
+	PublishTimeout time.Duration
+	Reads          ReadLog
+	Logger         *slog.Logger
+	Clock          func() time.Time
 }
 
 // Operations returns every den-wiki operation over deps. The MCP handler and
@@ -43,6 +48,10 @@ func Operations(d Deps) []*registry.Operation {
 		mediaDir = d.Media.Dir
 	}
 	ops = append(ops, lintOps(d.ContentDir, mediaDir)...)
+	if d.PublishTimeout <= 0 {
+		d.PublishTimeout = DefaultPublishTimeout
+	}
+	ops = append(ops, publishOps(d)...)
 	return ops
 }
 
@@ -77,7 +86,8 @@ func Version() string {
 }
 
 // NewServer returns the facade's HTTP handler: /mcp, the ledger's /v1/jobs
-// API, /healthz, /version and, with a media store, /media/.
+// API, /healthz, /version, /v1/export for shared pages (with a content dir)
+// and, with a media store, /media/.
 func NewServer(d Deps, reg *registry.Registry) http.Handler {
 	if d.Clock == nil {
 		d.Clock = time.Now
@@ -88,6 +98,11 @@ func NewServer(d Deps, reg *registry.Registry) http.Handler {
 	ledger.NewHandler(d.Ledger).RegisterRoutes(mux)
 	if d.Media != nil {
 		mux.Handle(media.URLPrefix, d.Media.Handler())
+	}
+	if d.ContentDir != "" {
+		h := exportHandler(d.ContentDir)
+		mux.Handle("GET /v1/export", h)
+		mux.Handle("GET /v1/export/asset", h)
 	}
 	mux.HandleFunc("GET /version", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"service": "den-wiki", "commit": version, "catalog_revision": reg.Revision()})

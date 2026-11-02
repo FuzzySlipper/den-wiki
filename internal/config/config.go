@@ -33,6 +33,20 @@ type Server struct {
 	UICommits UICommits `yaml:"ui_commits"`
 	// Media is the media store for video and very large files.
 	Media Media `yaml:"media"`
+	// Publish is where wiki_publish sends a page to be shared on the blog.
+	Publish Publish `yaml:"publish"`
+}
+
+// Publish locates doc-publish, the den-services service that writes shared
+// pages to the blog.
+type Publish struct {
+	// DocPublishURL is doc-publish's publications endpoint, e.g.
+	// https://den.dragonden.stream/api/v1/blog/publications. Empty disables
+	// wiki_publish.
+	DocPublishURL string `yaml:"doc_publish_url"`
+	// Timeout bounds one doc-publish call; default 60s (a publish fetches the
+	// page and its images, commits and pushes).
+	Timeout time.Duration `yaml:"timeout"`
 }
 
 // Media configures the content-addressed media store: files wiki_attach
@@ -77,6 +91,8 @@ const (
 	DefaultDatabase = "den-wiki.db"
 	DefaultTimeout  = 30 * time.Second
 
+	DefaultPublishTimeout = 60 * time.Second
+
 	DefaultUIAuthor   = "ui"
 	DefaultUIInterval = 30 * time.Second
 	DefaultUIQuiet    = 60 * time.Second
@@ -114,6 +130,9 @@ func LoadServer(path string) (Server, error) {
 	if s.OpenKnowledge.Timeout == 0 {
 		s.OpenKnowledge.Timeout = DefaultTimeout
 	}
+	if s.Publish.Timeout == 0 {
+		s.Publish.Timeout = DefaultPublishTimeout
+	}
 	if s.UICommits.Author == "" {
 		s.UICommits.Author = DefaultUIAuthor
 	}
@@ -126,7 +145,7 @@ func LoadServer(path string) (Server, error) {
 	return s, s.Validate()
 }
 
-// Validate checks the listen address and OK URL.
+// Validate checks the listen address and the URLs.
 func (s Server) Validate() error {
 	if err := CheckListen(s.Listen); err != nil {
 		return err
@@ -139,6 +158,12 @@ func (s Server) Validate() error {
 	}
 	if u := s.OpenKnowledge.URL; u != "" && !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
 		return fmt.Errorf("openknowledge.url %q must be an http(s) URL", u)
+	}
+	if u := s.Publish.DocPublishURL; u != "" && !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
+		return fmt.Errorf("publish.doc_publish_url %q must be an http(s) URL", u)
+	}
+	if s.Publish.Timeout < 0 {
+		return fmt.Errorf("publish.timeout must not be negative")
 	}
 	return nil
 }
