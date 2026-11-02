@@ -20,6 +20,7 @@ reads only the ones that fit its question.
 ```
 skills/
   source/<skill>/SKILL.md     the one source of each skill (text/template)
+  source/<skill>/references/  further files a skill points to, rendered the same way
   harnesses.yml               the harnesses: name, install folder, how to read Knowledge
   packages/<harness>/<skill>/ generated; committed so harnesses install from a checkout
 ```

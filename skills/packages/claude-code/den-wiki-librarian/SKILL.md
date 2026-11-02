@@ -75,7 +75,8 @@ instead. Keep a pass to about 15 changes; the next pass picks up the rest.
 When a research trail proposes a new tag, check `wiki_taxonomy` first: it
 lists the tags that exist, their descriptions and the pages using each, and
 any tags pages already use without a taxonomy entry. Only Patch edits
-`taxonomy.yml`, so new tags go under "Proposed changes".
+`taxonomy.yml`, so new tags go under "Proposed changes". Once Patch approves
+one in conversation, apply it: `references/owner-approved-changes.md`.
 - **unfolded_proposal:** read the trail's "Proposed changes". Apply the ones
   that are right; decline the rest with a reason, or pass them to Patch
   under your "Proposed changes". Then record the decision under your "Changes
