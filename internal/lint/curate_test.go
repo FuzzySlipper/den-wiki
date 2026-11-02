@@ -3,6 +3,7 @@ package lint
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -348,19 +349,26 @@ func TestOversizeAccountsForStructure(t *testing.T) {
 }
 
 // A page's sources are its citation footnotes: a source named only in a
-// leftover sources field is uncited.
+// leftover sources field, linked in running text, or cited in a fenced example
+// is uncited; a footnote that links on a continuation line cites.
 func TestUncitedSourcesIgnoreTheSourcesField(t *testing.T) {
 	root := t.TempDir()
 	src := func(body string) string {
 		return "---\ntype: source\nsource_url: https://e.x/" + strings.TrimSpace(body) + "\ncaptured: 2026-10-01\nsha256: \"" + bodySHA256([]byte(body)) + "\"\ncaptured_by_trail: research-one\n---\n" + body
 	}
+	body := "A claim.[^1] Another.[^2] See [the linked source](../sources/linked-only.md).\n\n" +
+		"```markdown\n[^9]: [An example citation](../sources/fenced-only.md) \"e\"\n```\n\n" +
+		"[^1]: [The footnoted source](../sources/footnoted.md) \"f\"\n" +
+		"[^2]: A long citation that continues\n    on [the next line](/sources/continued.md) \"c\""
 	writeContent(t, root, map[string]string{
 		"taxonomy.yml":           curateTaxonomy,
 		"trails/research-one.md": curTrail("one", "None."),
 		"sources/footnoted.md":   src("f\n"),
+		"sources/continued.md":   src("c\n"),
 		"sources/listed-only.md": src("l\n"),
-		"wiki/page.md": curPage("Page", "sources: [sources/footnoted.md, sources/listed-only.md]\n",
-			"A claim.[^1]\n\n[^1]: [The footnoted source](../sources/footnoted.md) \"f\""),
+		"sources/linked-only.md": src("i\n"),
+		"sources/fenced-only.md": src("e\n"),
+		"wiki/page.md":           curPage("Page", "sources: [sources/footnoted.md, sources/listed-only.md]\n", body),
 	})
 	r, err := Curate(root, CurateOptions{Now: time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)})
 	if err != nil {
@@ -370,7 +378,8 @@ func TestUncitedSourcesIgnoreTheSourcesField(t *testing.T) {
 	for _, it := range itemsOf(r, ClassSource) {
 		uncited = append(uncited, it.Path)
 	}
-	if strings.Join(uncited, ",") != "sources/listed-only.md" {
-		t.Fatalf("uncited: %v", uncited)
+	sort.Strings(uncited)
+	if got, want := strings.Join(uncited, ","), "sources/fenced-only.md,sources/linked-only.md,sources/listed-only.md"; got != want {
+		t.Fatalf("uncited: %s, want %s", got, want)
 	}
 }

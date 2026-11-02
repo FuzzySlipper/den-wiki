@@ -353,10 +353,18 @@ var (
 	fenceLine   = regexp.MustCompile("^\\s*(```|~~~)")
 )
 
-// checkCitations checks footnote definitions that link into sources/: the
-// target must exist and the footnote must quote the supporting span.
-func (l *linter) checkCitations(rel string, doc document) {
-	lines := strings.Split(string(doc.body), "\n")
+// footnote is a footnote definition outside fenced code: its 0-based line in
+// the body and its text, continuation lines joined.
+type footnote struct {
+	line int
+	text string
+}
+
+// footnotes returns a body's footnote definitions. Footnotes inside fenced
+// code blocks are examples, not citations.
+func footnotes(body []byte) []footnote {
+	var out []footnote
+	lines := strings.Split(string(body), "\n")
 	inFence := false
 	for i, line := range lines {
 		if fenceLine.MatchString(line) {
@@ -371,29 +379,53 @@ func (l *linter) checkCitations(rel string, doc document) {
 			continue
 		}
 		text := m[1]
-		if w := oneWordLead.FindStringSubmatch(text); w != nil {
-			f := newFinding(codeCitationOneWord, rel, "citation link text \""+w[1]+"\" is one word; OpenKnowledge misreads it as a link definition, so use at least two words")
-			f.Line = doc.bodyLine + i
-			l.add(f)
-		}
 		// Footnote definitions may continue on indented lines.
 		for j := i + 1; j < len(lines) && (strings.HasPrefix(lines[j], "    ") || strings.HasPrefix(lines[j], "\t")); j++ {
 			text += " " + strings.TrimSpace(lines[j])
 		}
+		out = append(out, footnote{line: i, text: text})
+	}
+	return out
+}
+
+// citedSources returns the sources/ paths a page's citation footnotes link
+// to, content-root-relative. They are the page's sources.
+func citedSources(rel string, body []byte) []string {
+	var out []string
+	for _, fn := range footnotes(body) {
+		for _, lm := range mdLink.FindAllStringSubmatch(fn.text, -1) {
+			if target, ok := resolveLink(rel, lm[1]); ok && strings.HasPrefix(target, zoneSources+"/") {
+				out = append(out, target)
+			}
+		}
+	}
+	return out
+}
+
+// checkCitations checks footnote definitions that link into sources/: the
+// target must exist and the footnote must quote the supporting span.
+func (l *linter) checkCitations(rel string, doc document) {
+	for _, fn := range footnotes(doc.body) {
+		text := fn.text
+		if w := oneWordLead.FindStringSubmatch(text); w != nil {
+			f := newFinding(codeCitationOneWord, rel, "citation link text \""+w[1]+"\" is one word; OpenKnowledge misreads it as a link definition, so use at least two words")
+			f.Line = doc.bodyLine + fn.line
+			l.add(f)
+		}
 		for _, lm := range mdLink.FindAllStringSubmatch(text, -1) {
-			target, ok := l.resolveLink(rel, lm[1])
+			target, ok := resolveLink(rel, lm[1])
 			if !ok || !strings.HasPrefix(target, zoneSources+"/") {
 				continue
 			}
 			f := newFinding(codeCitationSource, rel, "citation links to "+target+", which does not exist")
-			f.Line = doc.bodyLine + i
+			f.Line = doc.bodyLine + fn.line
 			if !l.exists(target) {
 				l.add(f)
 			}
 			withoutLinks := mdLink.ReplaceAllString(text, "]")
 			if !quotedSpan.MatchString(withoutLinks) {
 				q := newFinding(codeCitationQuote, rel, "citation of "+target+" does not quote the supporting span; add it in \"double quotes\"")
-				q.Line = doc.bodyLine + i
+				q.Line = doc.bodyLine + fn.line
 				l.add(q)
 			}
 		}
@@ -402,7 +434,7 @@ func (l *linter) checkCitations(rel string, doc document) {
 
 // resolveLink turns a Markdown link target into a content-root-relative path.
 // External links and anchors return false.
-func (l *linter) resolveLink(fromRel, target string) (string, bool) {
+func resolveLink(fromRel, target string) (string, bool) {
 	if strings.Contains(target, "://") || strings.HasPrefix(target, "#") || strings.HasPrefix(target, "mailto:") {
 		return "", false
 	}

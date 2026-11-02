@@ -721,17 +721,11 @@ func (c *curator) oversize() {
 func (c *curator) uncitedSources() {
 	cited := map[string]bool{}
 	superseded := map[string]bool{}
+	// A page's sources are its citation footnotes; other links (an inline
+	// mention, an example in fenced code) do not cite.
 	for _, p := range c.pages {
-		for _, m := range mdLink.FindAllSubmatch(p.body, -1) {
-			target := string(m[1])
-			if i := strings.IndexAny(target, "#?"); i >= 0 {
-				target = target[:i]
-			}
-			if strings.HasPrefix(target, "/") {
-				cited[path.Clean(strings.TrimPrefix(target, "/"))] = true
-			} else if !strings.Contains(target, "://") {
-				cited[path.Clean(path.Join(path.Dir(p.rel), target))] = true
-			}
+		for _, s := range citedSources(p.rel, p.body) {
+			cited[s] = true
 		}
 	}
 	for _, s := range c.sources {
