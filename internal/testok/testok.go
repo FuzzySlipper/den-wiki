@@ -18,6 +18,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/FuzzySlipper/den-wiki/internal/okclient"
 )
 
 var (
@@ -132,14 +134,31 @@ func waitReady(t *testing.T, s *Stack, cmd *exec.Cmd) {
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
-				// Give the index a moment to load the seeded docs.
-				time.Sleep(2 * time.Second)
+				waitIndexed(t, s, deadline)
 				return
 			}
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
 	t.Fatalf("OK did not answer at %s within 90s:\n%s", s.MCP, s.Log.String())
+}
+
+// waitIndexed waits until OK's search finds a seeded page. OK answers MCP
+// before its index has loaded the content, and a fixed pause was not always
+// long enough on a busy CI runner.
+func waitIndexed(t *testing.T, s *Stack, deadline time.Time) {
+	t.Helper()
+	c := okclient.New(s.MCP, 10*time.Second)
+	for time.Now().Before(deadline) {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		res, err := c.Call(ctx, "den-wiki-probe", "search", map[string]any{"query": "editable memory", "limit": 5})
+		cancel()
+		if err == nil && strings.Contains(res.Text, "wiki/agent-memory") {
+			return
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	t.Fatalf("OK's search did not find the seeded wiki/agent-memory.md within 90s:\n%s", s.Log.String())
 }
 
 // Git runs git in the content repo and returns its output.
