@@ -1,5 +1,5 @@
 {
-  "revision": "catalog-8040f5df70a9",
+  "revision": "catalog-349012427743",
   "operations": [
     {
       "name": "job_abandon",
@@ -74,6 +74,16 @@
       "input_schema": {
         "additionalProperties": false,
         "properties": {
+          "kind": {
+            "description": "Kind of run; default research. Its trail's type repeats it (type trail for research).",
+            "enum": [
+              "research",
+              "round-synthesis",
+              "calibration",
+              "curation"
+            ],
+            "type": "string"
+          },
           "parent_id": {
             "description": "Parent job id.",
             "type": "integer"
@@ -110,7 +120,7 @@
     },
     {
       "name": "job_edit",
-      "description": "Change a job's question, scope notes, priority or parent while it is open or claimed.",
+      "description": "Change a job's kind, question, scope notes, priority or parent while it is open or claimed.",
       "risk": "write",
       "tier": "long_tail",
       "backend": "ledger",
@@ -125,6 +135,15 @@
           "id": {
             "description": "Job id.",
             "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "research",
+              "round-synthesis",
+              "calibration",
+              "curation"
+            ],
+            "type": "string"
           },
           "note": {
             "type": "string"
@@ -246,6 +265,13 @@
           "assignee": {
             "description": "Only jobs claimed by this agent.",
             "type": "string"
+          },
+          "kinds": {
+            "description": "Any of research, round-synthesis, calibration, curation.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "limit": {
             "description": "Page size; default 50.",
@@ -721,6 +747,38 @@
         "properties": {},
         "type": "object"
       }
+    },
+    {
+      "name": "wiki_trails",
+      "description": "List trails by kind (research, round-synthesis, calibration, curation), newest first, with counts per kind and a Markdown table for a hub page or trail. A trail's type names its kind; older trails with type trail take it from a curation- or calibration- slug.",
+      "risk": "read",
+      "tier": "long_tail",
+      "backend": "lint",
+      "needs_agent": false,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "Only trails of this kind; default every kind.",
+            "enum": [
+              "research",
+              "round-synthesis",
+              "calibration",
+              "curation"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "examples": [
+        {
+          "description": "Calibration runs for the calibration hub",
+          "arguments": {
+            "kind": "calibration"
+          }
+        }
+      ]
     },
     {
       "name": "wiki_write",

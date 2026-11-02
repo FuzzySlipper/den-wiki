@@ -54,8 +54,9 @@ func (s *Service) now() time.Time { return s.clock().UTC() }
 // Ping checks the store.
 func (s *Service) Ping(ctx context.Context) error { return s.store.Ping(ctx) }
 
-// CreateRequest opens a new research job.
+// CreateRequest opens a new research job. Kind defaults to research.
 type CreateRequest struct {
+	Kind        string `json:"kind,omitempty"`
 	Question    string `json:"question"`
 	ScopeNotes  string `json:"scope_notes,omitempty"`
 	RequestedBy string `json:"requested_by"`
@@ -108,6 +109,7 @@ type AbandonRequest struct {
 // left alone; ClearParent removes the parent link.
 type EditRequest struct {
 	Actor       string  `json:"actor"`
+	Kind        *string `json:"kind,omitempty"`
 	Question    *string `json:"question,omitempty"`
 	ScopeNotes  *string `json:"scope_notes,omitempty"`
 	Priority    *int    `json:"priority,omitempty"`
@@ -119,6 +121,7 @@ type EditRequest struct {
 // ListRequest filters a bounded listing; see ListQuery.
 type ListRequest struct {
 	Statuses    []string `json:"statuses,omitempty"`
+	Kinds       []string `json:"kinds,omitempty"`
 	Assignee    string   `json:"assignee,omitempty"`
 	RequestedBy string   `json:"requested_by,omitempty"`
 	ParentID    *int64   `json:"parent_id,omitempty"`
@@ -165,9 +168,13 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Job, error) {
 	if err != nil {
 		return Job{}, validationFailed(err)
 	}
+	kind, err := checkKind(req.Kind)
+	if err != nil {
+		return Job{}, validationFailed(err)
+	}
 	now := s.now()
 	j := stored{Job: Job{
-		Question: question, ScopeNotes: scope, RequestedBy: by, Status: StatusOpen,
+		Kind: kind, Question: question, ScopeNotes: scope, RequestedBy: by, Status: StatusOpen,
 		ParentID: req.ParentID, Priority: priority, OutputPages: []string{},
 		CreatedAt: now, UpdatedAt: now,
 	}}
@@ -193,6 +200,11 @@ func (s *Service) List(ctx context.Context, req ListRequest) (Page, error) {
 			return Page{}, validationFailed(fmt.Errorf("unknown status %q (want open, claimed, done or abandoned)", st))
 		}
 	}
+	for _, k := range req.Kinds {
+		if !validKind(k) {
+			return Page{}, validationFailed(fmt.Errorf("unknown kind %q (want %s)", k, strings.Join(kinds, ", ")))
+		}
+	}
 	if req.MaxPriority < 0 || req.MaxPriority > 5 {
 		return Page{}, validationFailed(errPriority)
 	}
@@ -210,7 +222,7 @@ func (s *Service) List(ctx context.Context, req ListRequest) (Page, error) {
 		return Page{}, err
 	}
 	jobs, err := s.store.List(ctx, ListQuery{
-		Statuses: req.Statuses, Assignee: strings.TrimSpace(req.Assignee), RequestedBy: strings.TrimSpace(req.RequestedBy),
+		Statuses: req.Statuses, Kinds: req.Kinds, Assignee: strings.TrimSpace(req.Assignee), RequestedBy: strings.TrimSpace(req.RequestedBy),
 		ParentID: req.ParentID, MaxPriority: req.MaxPriority, Limit: limit + 1, Offset: req.Offset,
 	})
 	if err != nil {
@@ -397,20 +409,27 @@ func (s *Service) Abandon(ctx context.Context, id int64, req AbandonRequest) (Jo
 	return j.Job, err
 }
 
-// Edit changes the question, scope, priority or parent of a job that is not
-// finished or abandoned.
+// Edit changes the kind, question, scope, priority or parent of a job that is
+// not finished or abandoned.
 func (s *Service) Edit(ctx context.Context, id int64, req EditRequest) (Job, error) {
 	who, err := actor(req.Actor)
 	if err != nil {
 		return Job{}, err
 	}
-	if req.Question == nil && req.ScopeNotes == nil && req.Priority == nil && req.ParentID == nil && !req.ClearParent {
-		return Job{}, validationFailed(errors.New("edit changes nothing: give question, scope_notes, priority, parent_id or clear_parent"))
+	if req.Kind == nil && req.Question == nil && req.ScopeNotes == nil && req.Priority == nil && req.ParentID == nil && !req.ClearParent {
+		return Job{}, validationFailed(errors.New("edit changes nothing: give kind, question, scope_notes, priority, parent_id or clear_parent"))
 	}
 	if req.ParentID != nil && req.ClearParent {
 		return Job{}, validationFailed(errors.New("give parent_id or clear_parent, not both"))
 	}
 	changes := map[string]any{}
+	if req.Kind != nil {
+		k, err := checkKind(*req.Kind)
+		if err != nil {
+			return Job{}, validationFailed(err)
+		}
+		changes["kind"] = k
+	}
 	if req.Question != nil {
 		q, err := requireText("question", *req.Question)
 		if err != nil {
@@ -437,6 +456,9 @@ func (s *Service) Edit(ctx context.Context, id int64, req EditRequest) (Job, err
 			return stored{}, Event{}, invalidTransition("job %d is %s and can no longer be edited", id, cur.Status)
 		}
 		next := cur
+		if v, ok := changes["kind"].(string); ok {
+			next.Kind = v
+		}
 		if v, ok := changes["question"].(string); ok {
 			next.Question = v
 		}

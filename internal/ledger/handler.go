@@ -92,7 +92,7 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, j)
 }
 
-var listParams = map[string]bool{"status": true, "assignee": true, "requested_by": true, "parent_id": true, "max_priority": true, "limit": true, "offset": true}
+var listParams = map[string]bool{"status": true, "kind": true, "assignee": true, "requested_by": true, "parent_id": true, "max_priority": true, "limit": true, "offset": true}
 
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
@@ -103,10 +103,15 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	req := ListRequest{Assignee: q.Get("assignee"), RequestedBy: q.Get("requested_by")}
-	for _, st := range q["status"] {
-		for _, part := range strings.Split(st, ",") {
-			if part = strings.TrimSpace(part); part != "" {
-				req.Statuses = append(req.Statuses, part)
+	for _, p := range []struct {
+		name string
+		dst  *[]string
+	}{{"status", &req.Statuses}, {"kind", &req.Kinds}} {
+		for _, v := range q[p.name] {
+			for _, part := range strings.Split(v, ",") {
+				if part = strings.TrimSpace(part); part != "" {
+					*p.dst = append(*p.dst, part)
+				}
 			}
 		}
 	}

@@ -154,6 +154,10 @@ func TestEachRuleFails(t *testing.T) {
 			replace(t, r, source, "source_url: https://example.org/papers/agent-memory-survey", "source_url: not a url")
 		}, "frontmatter.schema", source},
 		{"trail schema", func(t *testing.T, r string) { replace(t, r, trail, "harness: claude-code\n", "") }, "frontmatter.schema", trail},
+		{"trail unknown kind", func(t *testing.T, r string) { replace(t, r, trail, "job: \"17\"", "type: survey\njob: \"17\"") }, "frontmatter.schema", trail},
+		{"source unknown type", func(t *testing.T, r string) {
+			replace(t, r, source, "title: A survey", "type: report\ntitle: A survey")
+		}, "frontmatter.schema", source},
 		{"index frontmatter", func(t *testing.T, r string) { write(t, r, "wiki/index.md", "---\ntitle: Wiki\n---\n") }, "index.frontmatter", "wiki/index.md"},
 		{"root index extra key", func(t *testing.T, r string) { replace(t, r, "index.md", "okf_version", "title: x\nokf_version") }, "index.frontmatter", "index.md"},
 		{"taxonomy missing", func(t *testing.T, r string) { remove(t, r, "taxonomy.yml") }, "taxonomy.missing", "taxonomy.yml"},
@@ -195,6 +199,12 @@ func TestEachRuleFails(t *testing.T) {
 		{"page shaped as source by type", func(t *testing.T, r string) {
 			write(t, r, "wiki/capture.md", "---\ntype: source\ntitle: x\n---\nbody\n")
 		}, "zone.misplaced", "wiki/capture.md"},
+		{"page shaped as trail by kind", func(t *testing.T, r string) {
+			write(t, r, "wiki/calibration-run.md", "---\ntype: calibration\ntitle: x\n---\nbody\n")
+		}, "zone.misplaced", "wiki/calibration-run.md"},
+		{"agent output in trails", func(t *testing.T, r string) {
+			write(t, r, "trails/report.md", "---\ntype: agent-output\ntitle: x\n---\nbody\n")
+		}, "zone.misplaced", "trails/report.md"},
 		{"source edited", func(t *testing.T, r string) { replace(t, r, source, "more\nconsistently", "far more\nconsistently") }, "source.sha256_mismatch", source},
 		{"supersedes missing", func(t *testing.T, r string) {
 			replace(t, r, "sources/agent-memory-survey-refetch-2026-10-29.md", "supersedes: sources/agent-memory-survey.md", "supersedes: sources/never-captured.md")
@@ -243,6 +253,44 @@ func TestRulesAreDocumented(t *testing.T) {
 	for _, r := range Rules() {
 		if !strings.Contains(string(doc), "`"+r.Code+"`") {
 			t.Errorf("rule %s is not listed in docs/content-contract.md", r.Code)
+		}
+	}
+}
+
+func TestTrailKindsAndAgentOutputPass(t *testing.T) {
+	root := copyTree(t, validFixture)
+	for _, k := range []string{"trail", "round-synthesis", "calibration", "curation"} {
+		write(t, root, "trails/run-"+k+".md", strings.Replace(read(t, root, trail), "job: \"17\"", "type: "+k, 1))
+	}
+	replace(t, root, source, "title: A survey", "type: agent-output\ntitle: A survey")
+	if fs := mustLint(t, root, Options{}); len(fs) != 0 {
+		t.Fatalf("trail kinds and agent-output should lint clean:%s", dump(fs))
+	}
+}
+
+func TestTrailKind(t *testing.T) {
+	cases := []struct {
+		slug, typ, want string
+	}{
+		{"agent-memory-research-2026-10-28", "trail", KindResearch},
+		{"agent-memory-research-2026-10-28", "", KindResearch},
+		{"war-round-synthesis-2026-10-31", "round-synthesis", KindRoundSynthesis},
+		{"cal-two", "calibration", KindCalibration},
+		{"nightly", "curation", KindCuration},
+		// Trails from before kinds keep type: trail; their slug says the kind.
+		{"curation-2026-11-01-nightly", "trail", KindCuration},
+		{"calibration-01-domestic-politics-2026-10-31", "trail", KindCalibration},
+		{"calibration-01-domestic-politics-2026-10-31", "", KindCalibration},
+		// An explicit kind wins over the slug.
+		{"curation-notes", "calibration", KindCalibration},
+	}
+	for _, c := range cases {
+		fields := map[string]any{}
+		if c.typ != "" {
+			fields["type"] = c.typ
+		}
+		if got := TrailKind(c.slug, fields); got != c.want {
+			t.Errorf("TrailKind(%q, type %q) = %q, want %q", c.slug, c.typ, got, c.want)
 		}
 	}
 }

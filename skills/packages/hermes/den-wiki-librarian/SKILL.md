@@ -14,15 +14,15 @@ can review it or roll it back with git.
 You are running in harness `hermes`. Every operation below is a tool on the
 `den-wiki` MCP server and a command of the `den-wiki` CLI (`den-wiki <op>
 --args-json '{...}'`). Long-tail operations (`wiki_curation_scan`,
-`wiki_move`, `wiki_delete`, `wiki_links`, `wiki_lint`) are callable by exact
-name; if your harness only offers the tools the server lists, use the CLI for
+`wiki_trails`, `wiki_move`, `wiki_delete`, `wiki_links`, `wiki_lint`) are
+callable by exact name; if your harness only offers the tools the server lists, use the CLI for
 them. The CLI's configured agent may belong to another agent on the host, so
 pass `--agent` with your librarian identity on every CLI write.
 
 ## 1. Start the curation trail
 
 Slug: `curation-<YYYY-MM-DD>-<what>`, for example `curation-2026-10-31-nightly`.
-Write `trails/<slug>.md` first: frontmatter `type: trail`,
+Write `trails/<slug>.md` first: frontmatter `type: curation`,
 `question: Curation pass`, `started`, `agent`, `harness: hermes` and no
 `job`, then these eight `##` headings with nothing under them yet:
 
@@ -44,7 +44,8 @@ Every write in this run passes this slug as `trail`.
 
 - `wiki_curation_scan`. Put its `summary_markdown` under "Queries and methods"
   as the scan report. Items are grouped by class and ranked within each.
-- `wiki_search` for `curation-` and read the last one or two curation trails.
+- `wiki_trails` with `kind: curation` and read the last one or two curation
+  trails (newest first).
   Do not redo what an earlier pass declined under "Proposed changes" unless
   something has changed since.
 - Under "Prior coverage checked", list the earlier curation trails you read.
@@ -100,10 +101,19 @@ any tags pages already use without a taxonomy entry. Only Patch edits
   - it is the only page for its concept, and its name follows the rule;
   - it links to the related pages that exist, and they link back. A page with
     no related pages yet still qualifies; say so in the trail;
-  - `confidence` is set and matches the evidence.
+  - `confidence` is set and matches the evidence;
+  - claims about the world rest on external sources. A `type: agent-output`
+    source (our own agents' output) supports only claims about the run that
+    produced it.
 
   Otherwise fix what is missing or leave it unreviewed, with a note on why.
   Never set `verified`; only a human does.
+
+Calibration runs (`type: calibration` trails) are read-only and their reports
+are `agent-output` sources, so the scan reports neither their proposals nor
+the pages only they changed, such as the calibration hub. To list the runs on
+that hub, use `wiki_trails` with `kind: calibration`; its `listing_markdown`
+is a ready table.
 
 You may delete. Delete a page only when its content lives on elsewhere (a
 merge) or it is plainly wrong or empty, and say why in the trail.

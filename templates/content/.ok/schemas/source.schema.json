@@ -12,8 +12,11 @@
   ],
   "properties": {
     "type": {
-      "description": "Always \"source\". OKF requires a type on every document; it also groups the generated index.",
-      "const": "source"
+      "description": "source for material captured from outside, or agent-output for output of our own agents captured from a run (a harness's report from a calibration run, say), which is a record of the run and never external evidence. OKF requires a type on every document; it also groups the generated index.",
+      "enum": [
+        "source",
+        "agent-output"
+      ]
     },
     "title": {
       "type": "string",

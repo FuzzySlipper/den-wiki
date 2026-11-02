@@ -1,7 +1,7 @@
 ---
 template:
   title: Trail
-  description: One research or curation run.
+  description: One run. Set type to trail (research), round-synthesis, calibration or curation.
 type: trail
 job: ""
 question: The question this run set out to answer

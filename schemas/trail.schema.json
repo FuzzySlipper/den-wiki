@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://den-wiki.local/schemas/trail.schema.json",
   "title": "den-wiki trails/ frontmatter",
-  "description": "Frontmatter of a trail page: one research run or curation run. Trails are append-only.",
+  "description": "Frontmatter of a trail page: one research, round-synthesis, calibration or curation run. Trails are append-only.",
   "type": "object",
   "required": [
     "question",
@@ -12,8 +12,13 @@
   ],
   "properties": {
     "type": {
-      "description": "Always \"trail\". OKF requires a type on every document; it also groups the generated index.",
-      "const": "trail"
+      "description": "The kind of run: trail (a research run, the default), round-synthesis (the synthesis of a research round's slices), calibration (one prompt to several harnesses, to compare them; read-only) or curation (a librarian pass). OKF requires a type on every document; it also groups the generated index, so each kind gets its own section.",
+      "enum": [
+        "trail",
+        "round-synthesis",
+        "calibration",
+        "curation"
+      ]
     },
     "job": {
       "description": "Research ledger job id. Absent for runs that were not queued as a ledger job.",

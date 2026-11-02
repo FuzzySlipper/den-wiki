@@ -17,7 +17,8 @@ frontmatter. The design rationale lives in Den document
   renames or merges badly named files, fixes dead links and orphans, scores
   staleness, splits oversized pages, folds trails' proposed changes into pages
   and promotes pages to `curated`. It may delete. It scores and reports first,
-  then acts, and records itself as a trail (`trails/curation-<date>-...`).
+  then acts, and records itself as a `type: curation` trail
+  (`trails/curation-<date>-...`).
 
 ## Layout
 
@@ -28,7 +29,7 @@ den-wiki-content/
   .gitattributes    OpenKnowledge's generated-index block (required for indexes)
   .ok/              OpenKnowledge config, schema copies and .gitignore
   sources/          captured material, never edited
-  trails/           one page per research or curation run, append-only
+  trails/           one page per run (research, round synthesis, calibration, curation), append-only
   wiki/             one page per concept, the current understanding
 ```
 
@@ -42,7 +43,7 @@ never run `ok init` on the content repo.
 | Zone | Holds | Mutability | Dates and IDs in names |
 |---|---|---|---|
 | `sources/` | Captured source material: articles, papers, transcripts, repo manifests | Never edited. A re-fetch is a new file with `supersedes:` | Allowed; subfolders allowed |
-| `trails/` | One page per research run and per curation run | Append-only | Allowed; no subfolders |
+| `trails/` | One page per run: research, round synthesis, calibration or curation | Append-only | Allowed; no subfolders |
 | `wiki/` | One page per concept, entity, comparison, synthesis or hub | Edited in place, merged and deleted freely | **Never** |
 
 Events and state are kept apart. A concept has exactly one page under `wiki/`,
@@ -67,10 +68,11 @@ reported once (`zone.non_markdown`) and not checked further.
 
 A file whose frontmatter is shaped for another zone (for example a trail saved
 under `wiki/`) is reported as `zone.misplaced` and not validated against the
-folder's schema. Shapes are recognised by keys only one zone uses:
-`sha256`/`source_url`/`captured_by_trail` for sources, `question` with
-`started`/`harness`/`job` for trails, and `curation`/`confidence`/`volatility`
-for pages.
+folder's schema. Shapes are recognised by a zone's own `type` values (`source` and
+`agent-output`; `trail`, `round-synthesis`, `calibration` and `curation`) or
+by keys only one zone uses: `sha256`/`source_url`/`captured_by_trail` for
+sources, `question` with `started`/`harness`/`job` for trails, and
+`curation`/`confidence`/`volatility` for pages.
 
 ## Naming under wiki/
 
@@ -117,7 +119,7 @@ case-insensitively; one concept has one page.
 
 | Field | Required | Meaning |
 |---|---|---|
-| `type` | | Always `source`; OKF wants a type on every document |
+| `type` | | `source` for material captured from outside, `agent-output` for output of our own agents captured from a run (see below). OKF wants a type on every document |
 | `title` | | Title of the captured material |
 | `source_url` | yes | Where it was captured from (a URI) |
 | `captured` | yes | When it was captured |
@@ -130,17 +132,47 @@ the capture there unedited. When the hash does not match, lint reports the
 value it computed, so an agent capturing a source can copy it from the finding.
 Quote the hash in YAML (`sha256: "…"`) so an all-digit value stays a string.
 
+`type: agent-output` marks a capture of our own agents' output, such as each
+harness's report from a calibration run, captured from its run directory. It
+records the run and is never external evidence: it supports claims about the
+run (what a harness wrote, how it worked), not claims about the world, and the
+curation scan does not report it as uncited. Sources are never edited, so a
+capture made before `agent-output` existed is marked by capturing it again
+with `type: agent-output` and `supersedes:` naming the old file.
+
 ### trails/: [`schemas/trail.schema.json`](../schemas/trail.schema.json)
 
 | Field | Required | Meaning |
 |---|---|---|
-| `type` | | Always `trail`; OKF wants a type on every document |
+| `type` | | The kind of run (below). OKF wants a type on every document |
 | `job` | | Research ledger job id; absent for runs not queued in the ledger |
 | `question` | yes | The question the run set out to answer |
 | `started` | yes | When the run started |
 | `finished` | | When it ended; absent while it runs |
 | `agent` | yes | Identity of the agent |
 | `harness` | yes | Harness it ran in, for example `claude-code`, `codex`, `dsh`, `hermes` |
+
+#### Trail kinds
+
+A trail's `type` says what kind of run it records. Tooling groups and filters
+trails by kind rather than by slug, and OK's generated `trails/index.md`
+groups by `type`, so each kind gets its own section there and calibration and
+curation runs do not bury research runs.
+
+| `type` | Kind | Run |
+|---|---|---|
+| `trail` | research | A research run: one question, or one evidence slice of a research round. The default |
+| `round-synthesis` | round-synthesis | The synthesis of a research round, reading its slice trails (the round's child jobs) |
+| `calibration` | calibration | One prompt given unchanged to several harnesses to compare their approach. Read-only: it edits no pages except the calibration hub, and each harness's report is an `agent-output` source |
+| `curation` | curation | A librarian curation pass ([curation](curation.md)) |
+
+Set `type` when the trail is created. Trails are append-only, so a trail
+written before kinds existed keeps `type: trail`; its kind is then read from
+its slug, `curation-` or `calibration-` prefixed, and is research otherwise.
+The `wiki_trails` operation ([facade](facade.md)) lists trails by kind with
+a Markdown table for hub pages, and a research ledger job's `kind`
+([ledger](ledger.md)) uses the same names, so a job says up front what its
+trail will be.
 
 ### taxonomy.yml: [`schemas/taxonomy.schema.json`](../schemas/taxonomy.schema.json)
 
@@ -246,12 +278,13 @@ index content. OK leaves regenerated indexes uncommitted; the den-wiki facade
 commits them in their own untagged commits, which the commit checks exempt.
 
 Each document's `type` groups it in its folder's index. OKF requires a `type`
-on every document, so sources carry `type: source` and trails `type: trail`
-(both optional in the schemas, and set by the templates).
+on every document, so sources carry `type: source` (or `agent-output`) and
+trails their kind (`type: trail` for research). Both are optional in the
+schemas and set by the templates.
 
 ## Trail page format
 
-A trail is one research or curation run, at `trails/<slug>.md`. Trails are
+A trail is one run of any kind, at `trails/<slug>.md`. Trails are
 flat so a slug names exactly one file. The filename may carry dates and IDs.
 Append while the run goes on; never remove or rewrite what a trail records.
 

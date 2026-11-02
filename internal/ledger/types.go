@@ -21,6 +21,37 @@ const (
 	StatusAbandoned = "abandoned"
 )
 
+// Job kinds, the kind of run a job asks for. The names match den-wiki's
+// trail kinds, so a job's kind says what its trail will be.
+const (
+	KindResearch       = "research"
+	KindRoundSynthesis = "round-synthesis"
+	KindCalibration    = "calibration"
+	KindCuration       = "curation"
+)
+
+var kinds = []string{KindResearch, KindRoundSynthesis, KindCalibration, KindCuration}
+
+func validKind(kind string) bool {
+	for _, k := range kinds {
+		if k == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func checkKind(kind string) (string, error) {
+	kind = strings.TrimSpace(kind)
+	if kind == "" {
+		return KindResearch, nil
+	}
+	if !validKind(kind) {
+		return "", fmt.Errorf("unknown kind %q (want %s)", kind, strings.Join(kinds, ", "))
+	}
+	return kind, nil
+}
+
 // Event kinds, one per state change.
 const (
 	EventCreated   = "created"
@@ -48,6 +79,7 @@ const (
 // snapshots; changing them changes nothing.
 type Job struct {
 	ID             int64      `json:"id"`
+	Kind           string     `json:"kind"`
 	Question       string     `json:"question"`
 	ScopeNotes     string     `json:"scope_notes,omitempty"`
 	RequestedBy    string     `json:"requested_by"`

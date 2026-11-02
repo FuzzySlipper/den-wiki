@@ -49,6 +49,7 @@ type Store interface {
 // ListQuery filters a bounded listing. Zero values mean "any".
 type ListQuery struct {
 	Statuses    []string
+	Kinds       []string
 	Assignee    string
 	RequestedBy string
 	ParentID    *int64
@@ -60,6 +61,7 @@ type ListQuery struct {
 const schema = `
 CREATE TABLE IF NOT EXISTS jobs (
 	id               INTEGER PRIMARY KEY AUTOINCREMENT,
+	kind             TEXT NOT NULL DEFAULT 'research',
 	question         TEXT NOT NULL,
 	scope_notes      TEXT NOT NULL DEFAULT '',
 	requested_by     TEXT NOT NULL,
@@ -117,14 +119,47 @@ func OpenSQLite(ctx context.Context, path string) (*SQLiteStore, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("create ledger schema: %w", err)
 	}
+	if err := migrate(ctx, db); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
 	return &SQLiteStore{db: db}, nil
+}
+
+// migrate adds the columns a database created by an earlier version lacks.
+// CREATE TABLE IF NOT EXISTS leaves an existing table as it was.
+func migrate(ctx context.Context, db *sql.DB) error {
+	rows, err := db.QueryContext(ctx, `SELECT name FROM pragma_table_info('jobs')`)
+	if err != nil {
+		return fmt.Errorf("read ledger schema: %w", err)
+	}
+	have := map[string]bool{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			rows.Close()
+			return err
+		}
+		have[name] = true
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if !have["kind"] {
+		// Jobs from before kinds were research jobs.
+		if _, err := db.ExecContext(ctx, `ALTER TABLE jobs ADD COLUMN kind TEXT NOT NULL DEFAULT 'research'`); err != nil {
+			return fmt.Errorf("add jobs.kind: %w", err)
+		}
+	}
+	return nil
 }
 
 func (s *SQLiteStore) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
 
 func (s *SQLiteStore) Close() error { return s.db.Close() }
 
-const jobColumns = `id, question, scope_notes, requested_by, assignee, harness, status, parent_id, priority,
+const jobColumns = `id, kind, question, scope_notes, requested_by, assignee, harness, status, parent_id, priority,
 	trail_slug, output_pages, lease_token, lease_expires_at, created_at, updated_at, claimed_at, finished_at`
 
 type scanner interface{ Scan(dest ...any) error }
@@ -136,7 +171,7 @@ func scanJob(row scanner) (stored, error) {
 		pages, created, updated             string
 		leaseExpires, claimedAt, finishedAt sql.NullString
 	)
-	err := row.Scan(&j.ID, &j.Question, &j.ScopeNotes, &j.RequestedBy, &j.Assignee, &j.Harness, &j.Status, &parent, &j.Priority,
+	err := row.Scan(&j.ID, &j.Kind, &j.Question, &j.ScopeNotes, &j.RequestedBy, &j.Assignee, &j.Harness, &j.Status, &parent, &j.Priority,
 		&j.TrailSlug, &pages, &j.LeaseToken, &leaseExpires, &created, &updated, &claimedAt, &finishedAt)
 	if err != nil {
 		return stored{}, err
@@ -219,10 +254,10 @@ func (s *SQLiteStore) Create(ctx context.Context, j stored, ev Event) (stored, e
 		}
 	}
 	pages, _ := json.Marshal(j.OutputPages)
-	res, err := tx.ExecContext(ctx, `INSERT INTO jobs (question, scope_notes, requested_by, assignee, harness, status, parent_id, priority,
+	res, err := tx.ExecContext(ctx, `INSERT INTO jobs (kind, question, scope_notes, requested_by, assignee, harness, status, parent_id, priority,
 		trail_slug, output_pages, lease_token, lease_expires_at, created_at, updated_at, claimed_at, finished_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		j.Question, j.ScopeNotes, j.RequestedBy, j.Assignee, j.Harness, j.Status, nullInt(j.ParentID), j.Priority,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		j.Kind, j.Question, j.ScopeNotes, j.RequestedBy, j.Assignee, j.Harness, j.Status, nullInt(j.ParentID), j.Priority,
 		j.TrailSlug, string(pages), j.LeaseToken, nullTime(j.LeaseExpiresAt), formatTime(j.CreatedAt), formatTime(j.UpdatedAt),
 		nullTime(j.ClaimedAt), nullTime(j.FinishedAt))
 	if err != nil {
@@ -276,6 +311,12 @@ func (s *SQLiteStore) List(ctx context.Context, q ListQuery) ([]Job, error) {
 		where = append(where, "status IN ("+strings.TrimSuffix(strings.Repeat("?,", len(q.Statuses)), ",")+")")
 		for _, st := range q.Statuses {
 			args = append(args, st)
+		}
+	}
+	if len(q.Kinds) > 0 {
+		where = append(where, "kind IN ("+strings.TrimSuffix(strings.Repeat("?,", len(q.Kinds)), ",")+")")
+		for _, k := range q.Kinds {
+			args = append(args, k)
 		}
 	}
 	if q.Assignee != "" {
@@ -415,10 +456,10 @@ func (s *SQLiteStore) expireOne(ctx context.Context, id int64, now time.Time) er
 
 func writeJob(ctx context.Context, tx *sql.Tx, j stored) error {
 	pages, _ := json.Marshal(j.OutputPages)
-	_, err := tx.ExecContext(ctx, `UPDATE jobs SET question = ?, scope_notes = ?, assignee = ?, harness = ?, status = ?, parent_id = ?,
+	_, err := tx.ExecContext(ctx, `UPDATE jobs SET kind = ?, question = ?, scope_notes = ?, assignee = ?, harness = ?, status = ?, parent_id = ?,
 		priority = ?, trail_slug = ?, output_pages = ?, lease_token = ?, lease_expires_at = ?, updated_at = ?, claimed_at = ?, finished_at = ?
 		WHERE id = ?`,
-		j.Question, j.ScopeNotes, j.Assignee, j.Harness, j.Status, nullInt(j.ParentID),
+		j.Kind, j.Question, j.ScopeNotes, j.Assignee, j.Harness, j.Status, nullInt(j.ParentID),
 		j.Priority, j.TrailSlug, string(pages), j.LeaseToken, nullTime(j.LeaseExpiresAt), formatTime(j.UpdatedAt),
 		nullTime(j.ClaimedAt), nullTime(j.FinishedAt), j.ID)
 	if err != nil {

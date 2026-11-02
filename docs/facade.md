@@ -45,11 +45,20 @@ agent identity are rejected before any backend is called.
 | `wiki_taxonomy` | read | default | `taxonomy.yml` from the content dir, parsed, with tag and type use counted across `wiki/` |
 | `wiki_lint`, `wiki_lint_rules` | read | long tail | den-wiki lint on the content dir |
 | `wiki_curation_scan` | read | long tail | `lint.Curate` on the content dir plus OK `links` (dead, orphans); see [curation.md](curation.md) |
+| `wiki_trails` | read | long tail | `lint.ListTrails` on the content dir: trails by kind |
 
 `tools/list` lists the default tier. Send `X-Den-Wiki-Tool-Profile: full` (or
 `params.toolProfile: "full"`) to list everything. Long-tail operations are
 always callable by exact name. Promoting one to the default tier is a
 per-operation decision backed by usage evidence from the telemetry.
+
+`wiki_trails` lists trails by kind (`research`, `round-synthesis`,
+`calibration`, `curation`; see the content contract's trail kinds), newest
+first: each with `path`, `slug`, `kind`, `question`, `started`, `finished`,
+`agent`, `harness` and `job`, plus `counts` for every kind and
+`listing_markdown`, a table a hub page or trail can carry. OK's generated
+`trails/index.md` already groups trails by `type` for people; this is the
+same grouping for agents, with the legacy slug inference applied.
 
 `wiki_taxonomy` is its own operation rather than letting `wiki_read` open
 `taxonomy.yml` (#10508). `wiki_read` reads pages through OK, and OK serves

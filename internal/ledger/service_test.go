@@ -571,3 +571,70 @@ func TestReopenedStoreKeepsJobs(t *testing.T) {
 		t.Fatalf("reopened: %+v %v", got, err)
 	}
 }
+
+func TestJobKinds(t *testing.T) {
+	s, _, _ := newTestService(t)
+	ctx := context.Background()
+	plain := mustCreate(t, s, "plain")
+	if plain.Kind != KindResearch {
+		t.Fatalf("default kind = %q, want research", plain.Kind)
+	}
+	cal, err := s.Create(ctx, CreateRequest{Question: "calibrate", RequestedBy: "owner", Kind: KindCalibration})
+	if err != nil || cal.Kind != KindCalibration {
+		t.Fatalf("create calibration: %+v, %v", cal, err)
+	}
+	_, err = s.Create(ctx, CreateRequest{Question: "x", RequestedBy: "owner", Kind: "survey"})
+	wantCode(t, err, CodeValidationFailed)
+
+	syn := KindRoundSynthesis
+	edited, err := s.Edit(ctx, plain.ID, EditRequest{Actor: "owner", Kind: &syn})
+	if err != nil || edited.Kind != KindRoundSynthesis {
+		t.Fatalf("edit kind: %+v, %v", edited, err)
+	}
+	bad := "survey"
+	_, err = s.Edit(ctx, plain.ID, EditRequest{Actor: "owner", Kind: &bad})
+	wantCode(t, err, CodeValidationFailed)
+
+	page, err := s.List(ctx, ListRequest{Kinds: []string{KindCalibration}})
+	if err != nil || len(page.Jobs) != 1 || page.Jobs[0].ID != cal.ID {
+		t.Fatalf("list calibration: %+v, %v", page, err)
+	}
+	page, err = s.List(ctx, ListRequest{Kinds: []string{KindCalibration, KindRoundSynthesis}})
+	if err != nil || len(page.Jobs) != 2 {
+		t.Fatalf("list two kinds: %+v, %v", page, err)
+	}
+	_, err = s.List(ctx, ListRequest{Kinds: []string{"survey"}})
+	wantCode(t, err, CodeValidationFailed)
+	assertReplayMatches(t, s, plain.ID)
+}
+
+// A database from before job kinds gains the column, and its jobs read as
+// research jobs.
+func TestOldDatabaseGainsKind(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "old.db")
+	ctx := context.Background()
+	st := openStore(t, path)
+	for _, q := range []string{
+		`DROP TABLE job_events`, `DROP TABLE jobs`,
+		`CREATE TABLE jobs (id INTEGER PRIMARY KEY AUTOINCREMENT, question TEXT NOT NULL, scope_notes TEXT NOT NULL DEFAULT '',
+			requested_by TEXT NOT NULL, assignee TEXT NOT NULL DEFAULT '', harness TEXT NOT NULL DEFAULT '', status TEXT NOT NULL,
+			parent_id INTEGER REFERENCES jobs(id), priority INTEGER NOT NULL, trail_slug TEXT NOT NULL DEFAULT '',
+			output_pages TEXT NOT NULL DEFAULT '[]', lease_token TEXT NOT NULL DEFAULT '', lease_expires_at TEXT,
+			created_at TEXT NOT NULL, updated_at TEXT NOT NULL, claimed_at TEXT, finished_at TEXT)`,
+		`INSERT INTO jobs (question, requested_by, status, priority, created_at, updated_at)
+			VALUES ('old question', 'owner', 'open', 3, '2026-10-01T00:00:00.000000000Z', '2026-10-01T00:00:00.000000000Z')`,
+	} {
+		if _, err := st.db.ExecContext(ctx, q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = st.Close()
+	s := NewService(openStore(t, path), time.Now)
+	j, err := s.Get(ctx, 1)
+	if err != nil || j.Kind != KindResearch || j.Question != "old question" {
+		t.Fatalf("old job: %+v, %v", j, err)
+	}
+	if _, err := s.Create(ctx, CreateRequest{Question: "new", RequestedBy: "owner", Kind: KindCuration}); err != nil {
+		t.Fatal(err)
+	}
+}

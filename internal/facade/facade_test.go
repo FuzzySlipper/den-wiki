@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -203,6 +204,40 @@ func TestLedgerThroughFacade(t *testing.T) {
 	evs, _ := h.call(t, "", "job_events", map[string]any{"id": id})
 	if n := len(evs["events"].([]any)); n != 3 {
 		t.Fatalf("%d events", n)
+	}
+}
+
+func TestTrailsAndJobKindsThroughFacade(t *testing.T) {
+	content := t.TempDir()
+	run := func(typ string) string {
+		return "---\ntype: " + typ + "\nquestion: q\nstarted: 2026-10-31\nagent: a\nharness: codex\n---\n\nbody\n"
+	}
+	for name, body := range map[string]string{"cal-two.md": run("calibration"), "memory-run.md": run("trail")} {
+		if err := os.MkdirAll(filepath.Join(content, "trails"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(content, "trails", name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h := newHarnessWith(t, &countingWiki{}, content)
+	out, isErr := h.call(t, "owner", "wiki_trails", map[string]any{"kind": "calibration"})
+	trails, _ := out["trails"].([]any)
+	if isErr || len(trails) != 1 || trails[0].(map[string]any)["slug"] != "cal-two" {
+		t.Fatalf("wiki_trails: %v", out)
+	}
+	if bad, isErr := h.call(t, "owner", "wiki_trails", map[string]any{"kind": "survey"}); !isErr || errorCode(bad) != "invalid_arguments" {
+		t.Fatalf("unknown kind: %v", bad)
+	}
+
+	job, isErr := h.call(t, "owner", "job_create", map[string]any{"question": "Calibrate", "kind": "calibration"})
+	if isErr || job["kind"] != "calibration" {
+		t.Fatalf("create calibration job: %v", job)
+	}
+	h.call(t, "owner", "job_create", map[string]any{"question": "Research"})
+	page, _ := h.call(t, "owner", "job_list", map[string]any{"kinds": []string{"calibration"}})
+	if jobs, _ := page["jobs"].([]any); len(jobs) != 1 {
+		t.Fatalf("job_list by kind: %v", page)
 	}
 }
 

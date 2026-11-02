@@ -233,3 +233,47 @@ func TestUnfoldedProposalsAppendedAfterACurationDecision(t *testing.T) {
 		t.Fatalf("after deciding B: %+v", got)
 	}
 }
+
+// Trail kinds steer the scan: calibration runs propose nothing for the
+// librarian and the pages only they changed are records, agent output is
+// not uncited evidence, and a curation trail is known by its type as well
+// as by its slug.
+func TestCurateHonoursTrailKinds(t *testing.T) {
+	root := t.TempDir()
+	kinded := func(kind, proposed string) string {
+		return strings.Replace(curTrail(kind, proposed), "type: trail", "type: "+kind, 1)
+	}
+	agentOut := "---\ntype: agent-output\nsource_url: file://den-agents/run/report.md\ncaptured: 2026-10-01\nsha256: \"" + bodySHA256([]byte("r\n")) + "\"\ncaptured_by_trail: cal-two\n---\nr\n"
+	writeContent(t, root, map[string]string{
+		"taxonomy.yml":                  curateTaxonomy,
+		"trails/cal-two.md":             kinded("calibration", "- Give DSH a longer timeout."),
+		"trails/calibration-01-old.md":  curTrail("legacy calibration", "- Tune the launcher."),
+		"trails/war-round-synthesis.md": kinded("round-synthesis", "- Merge the war pages."),
+		"trails/research-folded.md":     curTrail("folded", "- Add a page."),
+		"trails/nightly.md":             strings.Replace(kinded("curation", "None."), "## Changes made\n\nNone.", "## Changes made\n\n- Folded [research](/trails/research-folded.md).", 1),
+		"sources/calibration/report.md": agentOut,
+		"wiki/calibration-runs.md":      strings.Replace(curPage("Calibration runs", "trails: [cal-two, calibration-01-old]\n", "runs"), "type: concept", "type: hub", 1),
+		"wiki/harness-notes.md":         curPage("Harness notes", "trails: [cal-two, research-folded]\n", "notes"),
+		"wiki/plain-unreviewed-page.md": curPage("Plain unreviewed page", "", "x"),
+	})
+	r, err := Curate(root, CurateOptions{Now: time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	paths := func(class string) string {
+		var out []string
+		for _, it := range itemsOf(r, class) {
+			out = append(out, it.Path)
+		}
+		return strings.Join(out, ",")
+	}
+	if got := paths(ClassUnfoldedProposal); got != "trails/war-round-synthesis.md" {
+		t.Errorf("unfolded proposals: %q, want only the round synthesis", got)
+	}
+	if got := paths(ClassSource); got != "" {
+		t.Errorf("source items: %q, want none for uncited agent output", got)
+	}
+	if got := paths(ClassUnreviewed); got != "wiki/harness-notes.md,wiki/plain-unreviewed-page.md" {
+		t.Errorf("unreviewed: %q, want every page but the calibration hub", got)
+	}
+}

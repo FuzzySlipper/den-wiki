@@ -11,6 +11,7 @@ import (
 // argument: callers never repeat what the transport already says.
 
 type jobCreateArgs struct {
+	Kind       string `json:"kind,omitempty" enum:"research,round-synthesis,calibration,curation" desc:"Kind of run; default research. Its trail's type repeats it (type trail for research)."`
 	Question   string `json:"question" required:"true" desc:"What to research."`
 	ScopeNotes string `json:"scope_notes,omitempty" desc:"What is in and out of scope."`
 	ParentID   *int64 `json:"parent_id,omitempty" desc:"Parent job id."`
@@ -23,6 +24,7 @@ type jobIDArgs struct {
 
 type jobListArgs struct {
 	Statuses    []string `json:"statuses,omitempty" desc:"Any of open, claimed, done, abandoned."`
+	Kinds       []string `json:"kinds,omitempty" desc:"Any of research, round-synthesis, calibration, curation."`
 	Assignee    string   `json:"assignee,omitempty" desc:"Only jobs claimed by this agent."`
 	RequestedBy string   `json:"requested_by,omitempty" desc:"Only jobs requested by this agent."`
 	ParentID    *int64   `json:"parent_id,omitempty" desc:"Only children of this job."`
@@ -67,6 +69,7 @@ type jobAbandonArgs struct {
 
 type jobEditArgs struct {
 	ID          int64   `json:"id" required:"true" desc:"Job id."`
+	Kind        *string `json:"kind,omitempty" enum:"research,round-synthesis,calibration,curation"`
 	Question    *string `json:"question,omitempty"`
 	ScopeNotes  *string `json:"scope_notes,omitempty"`
 	Priority    *int    `json:"priority,omitempty" min:"1" max:"5"`
@@ -83,7 +86,7 @@ func ledgerOps(svc *ledger.Service) []*registry.Operation {
 			Description: "Queue a research job. You become its requester. Returns the job; claim it with job_claim to work on it.",
 			Examples:    []registry.Example{{Description: "Queue a question", Arguments: map[string]any{"question": "How do LLM agents keep durable memory?", "priority": 2}}},
 		}, func(ctx context.Context, c *registry.Call, a jobCreateArgs) (any, error) {
-			return svc.Create(ctx, ledger.CreateRequest{Question: a.Question, ScopeNotes: a.ScopeNotes, RequestedBy: c.Agent, ParentID: a.ParentID, Priority: a.Priority})
+			return svc.Create(ctx, ledger.CreateRequest{Kind: a.Kind, Question: a.Question, ScopeNotes: a.ScopeNotes, RequestedBy: c.Agent, ParentID: a.ParentID, Priority: a.Priority})
 		}),
 		registry.New(registry.Operation{
 			Name: "job_get", Risk: registry.RiskRead, Backend: backend,
@@ -97,7 +100,7 @@ func ledgerOps(svc *ledger.Service) []*registry.Operation {
 			Examples:    []registry.Example{{Description: "Open jobs to pick from", Arguments: map[string]any{"statuses": []string{"open"}, "limit": 10}}},
 		}, func(ctx context.Context, _ *registry.Call, a jobListArgs) (any, error) {
 			return svc.List(ctx, ledger.ListRequest{
-				Statuses: a.Statuses, Assignee: a.Assignee, RequestedBy: a.RequestedBy, ParentID: a.ParentID,
+				Statuses: a.Statuses, Kinds: a.Kinds, Assignee: a.Assignee, RequestedBy: a.RequestedBy, ParentID: a.ParentID,
 				MaxPriority: a.MaxPriority, Limit: a.Limit, Offset: a.Offset,
 			})
 		}),
@@ -133,9 +136,9 @@ func ledgerOps(svc *ledger.Service) []*registry.Operation {
 		}),
 		registry.New(registry.Operation{
 			Name: "job_edit", Risk: registry.RiskWrite, Backend: backend,
-			Description: "Change a job's question, scope notes, priority or parent while it is open or claimed.",
+			Description: "Change a job's kind, question, scope notes, priority or parent while it is open or claimed.",
 		}, func(ctx context.Context, c *registry.Call, a jobEditArgs) (any, error) {
-			return svc.Edit(ctx, a.ID, ledger.EditRequest{Actor: c.Agent, Question: a.Question, ScopeNotes: a.ScopeNotes, Priority: a.Priority, ParentID: a.ParentID, ClearParent: a.ClearParent, Note: a.Note})
+			return svc.Edit(ctx, a.ID, ledger.EditRequest{Actor: c.Agent, Kind: a.Kind, Question: a.Question, ScopeNotes: a.ScopeNotes, Priority: a.Priority, ParentID: a.ParentID, ClearParent: a.ClearParent, Note: a.Note})
 		}),
 		registry.New(registry.Operation{
 			Name: "job_events", Risk: registry.RiskRead, Backend: backend,

@@ -175,13 +175,20 @@ func TestEveryOperationThroughTheCLI(t *testing.T) {
 	if ev := run(ExitOK, "job_events", "--id", id(job)); len(ev["events"].([]any)) < 6 {
 		t.Fatalf("events: %v", ev)
 	}
-	spare := run(ExitOK, "job_create", "--question", "Throwaway")
+	spare := run(ExitOK, "job_create", "--question", "Throwaway", "--kind", "calibration")
+	if l := run(ExitOK, "job_list", "--kinds", "calibration"); len(l["jobs"].([]any)) != 1 {
+		t.Fatalf("job_list by kind: %v", l)
+	}
 	run(ExitOK, "job_abandon", "--id", id(spare), "--note", "not needed")
 	run(ExitNotFound, "job_get", "--id", "999999")
 	run(ExitNotFound, "wiki_read", "--path", "wiki/no-such-page.md")
 	if tax := run(ExitOK, "wiki_taxonomy"); len(tax["tags"].([]any)) == 0 {
 		t.Fatalf("taxonomy: %v", tax)
 	}
+	if tr := run(ExitOK, "wiki_trails", "--kind", "research"); len(tr["trails"].([]any)) == 0 || tr["listing_markdown"] == "" {
+		t.Fatalf("trails: %v", tr)
+	}
+	run(ExitUsage, "wiki_trails", "--kind", "survey")
 	if scan := run(ExitOK, "wiki_curation_scan", "--hub_min_pages", "2"); scan["counts"] == nil {
 		t.Fatalf("curation scan: %v", scan)
 	}

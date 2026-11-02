@@ -78,6 +78,23 @@ func TestHandlerFlow(t *testing.T) {
 	}
 }
 
+func TestHandlerListsByKind(t *testing.T) {
+	srv := newTestServer(t)
+	for _, body := range []string{`{"question":"a","requested_by":"owner"}`, `{"question":"b","requested_by":"owner","kind":"calibration"}`} {
+		if status, out := call(t, srv, "POST", "/v1/jobs", body); status != http.StatusCreated {
+			t.Fatalf("create: %d %v", status, out)
+		}
+	}
+	status, out := call(t, srv, "GET", "/v1/jobs?kind=calibration", "")
+	jobs, _ := out["jobs"].([]any)
+	if status != http.StatusOK || len(jobs) != 1 || jobs[0].(map[string]any)["kind"] != "calibration" {
+		t.Fatalf("list by kind: %d %v", status, out)
+	}
+	if status, out := call(t, srv, "GET", "/v1/jobs?kind=survey", ""); status != http.StatusBadRequest || errCode(out) != CodeValidationFailed {
+		t.Fatalf("unknown kind: %d %v", status, out)
+	}
+}
+
 func TestHandlerErrors(t *testing.T) {
 	srv := newTestServer(t)
 	_, job := call(t, srv, "POST", "/v1/jobs", `{"question":"q","requested_by":"owner"}`)

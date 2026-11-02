@@ -210,9 +210,9 @@ func (l *linter) checkIndex(rel string, isRoot bool) error {
 func zoneShape(fields map[string]any) string {
 	has := func(k string) bool { _, ok := fields[k]; return ok }
 	switch {
-	case fields["type"] == "source" || has("sha256") || has("source_url") || has("captured_by_trail"):
+	case fields["type"] == "source" || fields["type"] == SourceTypeAgentOutput || has("sha256") || has("source_url") || has("captured_by_trail"):
 		return zoneSources
-	case fields["type"] == "trail" || has("question") && (has("harness") || has("started") || has("job")):
+	case isTrailType(fields["type"]) || has("question") && (has("harness") || has("started") || has("job")):
 		return zoneTrails
 	case has("curation") || has("confidence") || has("volatility"):
 		return zoneWiki

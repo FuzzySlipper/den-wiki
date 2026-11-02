@@ -3,8 +3,8 @@
 Writes to den-wiki are permissive; curation corrects after the fact. A
 librarian agent runs a curation pass on a schedule. It scans, acts on what is
 clearly right, proposes the rest to Patch, and records every change in
-its own trail (`trails/curation-<date>-<what>.md`), whose slug tags its
-commits. Patch reviews a pass by reading that trail, and rolls back any
+its own trail (`trails/curation-<date>-<what>.md`, `type: curation`), whose
+slug tags its commits. Patch reviews a pass by reading that trail, and rolls back any
 change with git.
 
 ## The scan
@@ -27,14 +27,18 @@ takes dead links and orphans from OpenKnowledge's link views. It returns:
 | `dead_link` | Links from pages and trails to missing pages (OpenKnowledge). Captured sources keep their original relative links, so their dead links are not reported | 1 |
 | `orphan` | `wiki/` pages nothing links to (OpenKnowledge). Trails and sources are reached through page frontmatter, so they are not reported | 1 |
 | `missing_hub` | A tag on 5 or more pages with no `type: hub` page carrying it; `path` is `tag:<name>` | Pages with the tag |
-| `unfolded_proposal` | A research trail whose "Proposed changes" holds lines no curation decision has covered (see below) | 1 |
+| `unfolded_proposal` | A research or round-synthesis trail whose "Proposed changes" holds lines no curation decision has covered (see below). Calibration and curation trails propose nothing to fold | 1 |
 | `stale` | A page whose later of `updated` and `verified` is older than its volatility half-life: hot 30 days, warm 180 (also when `volatility` is missing), cold 730 | Age divided by half-life |
 | `oversize` | A page body over 2500 words | Words divided by the limit |
-| `source` | `source.sha256_mismatch`, `source.supersedes_missing` and missing `captured_by_trail` findings; and sources no page cites (in `sources` or a body link) and none supersedes | 1, or 0.5 for uncited |
-| `unreviewed` | Pages still `curation: unreviewed` | Days since `updated` |
+| `source` | `source.sha256_mismatch`, `source.supersedes_missing` and missing `captured_by_trail` findings; and sources no page cites (in `sources` or a body link) and none supersedes, except `type: agent-output`, which records a run rather than waiting to be cited | 1, or 0.5 for uncited |
+| `unreviewed` | Pages still `curation: unreviewed`, except run records: pages whose `trails` are all calibration runs, such as the calibration hub | Days since `updated` |
 
 `oversize_words` and `hub_min_pages` override the two thresholds. Class names
 are stable; a changed meaning gets a new class.
+
+The scan reads each trail's kind from its `type`, and from its slug for
+trails written before kinds (content contract, trail kinds): a curation trail
+is `type: curation` or a `curation-` slug.
 
 A curation trail decides on a research trail's proposals by linking the trail
 under "Changes made"; links elsewhere in it are only references. The decision

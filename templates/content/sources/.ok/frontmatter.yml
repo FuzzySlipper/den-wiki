@@ -1,10 +1,11 @@
 zone: sources
-description: "Captured source material, never edited; a re-fetch is a new file with supersedes. sha256 covers the body after the frontmatter. captured_by_trail names the capturing run. Full rules: rules below and docs/content-contract.md."
+description: "Captured source material, never edited; a re-fetch is a new file with supersedes. sha256 covers the body after the frontmatter. captured_by_trail names the capturing run. Output of our own agents is type agent-output, never external evidence. Full rules: rules below and docs/content-contract.md."
 mutability: Never edited. A re-fetch is a new file whose supersedes names the earlier capture.
 rules:
   - Store the capture as Markdown under a frontmatter block that follows schemas/source.schema.json.
   - sha256 is the lowercase hex SHA-256 of the body - every byte after the line that closes the frontmatter.
   - captured_by_trail names the trail of the run that captured the source.
+  - type is source for material from outside, and agent-output for output of our own agents captured from a run (a harness's calibration report, say). Agent output records the run; it is not evidence for claims about the world.
   - Filenames may carry dates and IDs; subfolders are allowed.
   - index.md files are generated. Do not edit them.
 template: source

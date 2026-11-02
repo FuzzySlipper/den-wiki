@@ -37,11 +37,11 @@ var CurationClasses = []struct{ Class, Meaning string }{
 	{ClassDeadLink, "A wiki page or trail links to a page that does not exist (from OpenKnowledge)"},
 	{ClassOrphan, "A wiki page that no page links to (from OpenKnowledge)"},
 	{ClassMissingHub, "A tag carried by enough pages to need a hub page, with no hub page for it"},
-	{ClassUnfoldedProposal, "A research trail's \"Proposed changes\" that no curation trail's \"Changes made\" links to yet"},
+	{ClassUnfoldedProposal, "A research or round-synthesis trail's \"Proposed changes\" that no curation trail's \"Changes made\" links to yet"},
 	{ClassStale, "A page older than its volatility half-life since it was last updated or verified"},
 	{ClassOversize, "A page whose body is long enough to split"},
-	{ClassSource, "A source that fails its hash, names a missing trail or superseded file, or that no page cites"},
-	{ClassUnreviewed, "A page still marked curation: unreviewed"},
+	{ClassSource, "A source that fails its hash, names a missing trail or superseded file, or that no page cites (agent output excepted)"},
+	{ClassUnreviewed, "A page still marked curation: unreviewed, unless only calibration runs have changed it"},
 }
 
 // HalfLifeDays maps a page's volatility to the age at which it counts as stale.
@@ -398,12 +398,17 @@ func sectionText(body []byte, name string) string {
 	return strings.TrimSpace(strings.Join(out, "\n"))
 }
 
-func isCurationTrail(rel string) bool {
-	return strings.HasPrefix(path.Base(rel), "curation-")
-}
+func trailSlug(rel string) string { return strings.TrimSuffix(path.Base(rel), ".md") }
 
-// unfoldedProposals reports research trails with proposals no curation trail
-// has decided on. A curation trail decides on a research trail by linking it
+func kindOf(t corpusDoc) string { return TrailKind(trailSlug(t.rel), t.fields) }
+
+// proposes reports whether a trail kind's "Proposed changes" are for the
+// librarian to fold. Calibration runs are read-only and curation passes
+// propose to Patch, not to themselves.
+func proposes(kind string) bool { return kind == KindResearch || kind == KindRoundSynthesis }
+
+// unfoldedProposals reports research and round-synthesis trails with
+// proposals no curation trail has decided on. A curation trail decides on a research trail by linking it
 // under "Changes made", and that decision covers the proposals the research
 // trail held when the link was committed. Trails are append-only, so
 // proposals added later stay open until another decision links them.
@@ -411,10 +416,10 @@ func isCurationTrail(rel string) bool {
 func (c *curator) unfoldedProposals() {
 	handled, inGit := c.handledProposals()
 	for _, t := range c.trails {
-		if isCurationTrail(t.rel) {
+		if !proposes(kindOf(t)) {
 			continue
 		}
-		slug := strings.TrimSuffix(path.Base(t.rel), ".md")
+		slug := trailSlug(t.rel)
 		open := proposalLines(sectionText(t.body, "Proposed changes"))
 		done, linked := handled[slug]
 		if linked && !inGit {
@@ -451,12 +456,12 @@ func (c *curator) handledProposals() (handled map[string]map[string]bool, inGit 
 	inGit = err == nil
 	research := map[string]string{}
 	for _, t := range c.trails {
-		if !isCurationTrail(t.rel) {
-			research[strings.TrimSuffix(path.Base(t.rel), ".md")] = t.rel
+		if proposes(kindOf(t)) {
+			research[trailSlug(t.rel)] = t.rel
 		}
 	}
 	for _, t := range c.trails {
-		if !isCurationTrail(t.rel) {
+		if kindOf(t) != KindCuration {
 			continue
 		}
 		for _, m := range trailLink.FindAllStringSubmatch(sectionText(t.body, "Changes made"), -1) {
@@ -654,7 +659,9 @@ func (c *curator) uncitedSources() {
 		}
 	}
 	for _, s := range c.sources {
-		if cited[s.rel] || superseded[s.rel] {
+		// Agent output records a run; it is not evidence waiting for a
+		// claim to cite it.
+		if cited[s.rel] || superseded[s.rel] || IsAgentOutput(s.fields) {
 			continue
 		}
 		c.add(CurationItem{Class: ClassSource, Path: s.rel, Score: 0.5, Message: "no page cites this source; cite it where it supports a claim, or leave it for later research"})
@@ -664,8 +671,12 @@ func (c *curator) uncitedSources() {
 // --- unreviewed backlog ---
 
 func (c *curator) unreviewed() {
+	kinds := map[string]string{}
+	for _, t := range c.trails {
+		kinds[trailSlug(t.rel)] = kindOf(t)
+	}
 	for _, p := range c.pages {
-		if cur, _ := stringField(p.fields, "curation"); cur != "unreviewed" {
+		if cur, _ := stringField(p.fields, "curation"); cur != "unreviewed" || runRecord(p, kinds) {
 			continue
 		}
 		age := 0
@@ -677,6 +688,19 @@ func (c *curator) unreviewed() {
 			Message: fmt.Sprintf("unreviewed, last updated %d days ago; review it against its sources and promote it to curated", age),
 		})
 	}
+}
+
+// runRecord reports whether only calibration runs have changed a page, such
+// as the hub that lists them. Such a page records our own runs rather than
+// claims about the world, so it is not review backlog.
+func runRecord(p corpusDoc, kinds map[string]string) bool {
+	ts := stringList(p.fields, "trails")
+	for _, t := range ts {
+		if kinds[t] != KindCalibration {
+			return false
+		}
+	}
+	return len(ts) > 0
 }
 
 func round2(f float64) float64 { return math.Round(f*100) / 100 }

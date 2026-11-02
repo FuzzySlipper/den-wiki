@@ -13,6 +13,7 @@ Storage is SQLite through the pure-Go `modernc.org/sqlite` driver (no CGO).
 | Field | Meaning |
 |---|---|
 | `id` | Ledger-assigned integer |
+| `kind` | `research` (default), `round-synthesis`, `calibration` or `curation`: the kind of run, named as trail kinds are ([content contract](content-contract.md)) |
 | `question`, `scope_notes` | What to research and its limits |
 | `requested_by` | Who asked |
 | `assignee`, `harness` | Current claimer and its harness (empty unless claimed) |
@@ -39,8 +40,14 @@ the job to `open`; `abandoned` is also reachable from `open`.
   call gets `lease_expired`.
 - **finish** requires `trail_slug`. When the service has a content directory, it
   also requires `trails/<slug>.md` to exist there.
-- **edit** changes question, scope notes, priority or parent while the job is not
-  done or abandoned.
+- **edit** changes kind, question, scope notes, priority or parent while the job
+  is not done or abandoned.
+
+A research round is a parent job with one child job per evidence slice; its
+synthesis is the parent's own run (`kind: round-synthesis`), and
+`job_list` with `parent_id` shows whether the slices are done. The ledger
+does not hold jobs back until others finish, and records no model, effort or
+usage: the round's trails record those.
 
 ## Event log
 
@@ -52,7 +59,9 @@ field that changed, as it appears in the job's JSON, with `null` for a field
 that was cleared (for example `lease_expires_at` on finish, abandon, release
 or expiry). Timestamps (`updated_at`, `claimed_at`, `finished_at`) are fields
 like any other. Merging the events' `data` in order therefore rebuilds the
-whole job. The table rejects updates and deletes.
+whole job, except that jobs created before `kind` existed have no `kind` in
+their `created` event: they are research jobs, which is what the column was
+given when the ledger added it. The table rejects updates and deletes.
 
 ## Errors
 
@@ -75,7 +84,7 @@ values are `validation_failed`. Errors are `{"error":{"code","message"}}`.
 | Method and path | Operation |
 |---|---|
 | `POST /v1/jobs` | create |
-| `GET /v1/jobs?status=&assignee=&requested_by=&parent_id=&max_priority=&limit=&offset=` | list: `{jobs, next_offset}`, `next_offset` null on the last page; `limit` 1 to 200, default 50 |
+| `GET /v1/jobs?status=&kind=&assignee=&requested_by=&parent_id=&max_priority=&limit=&offset=` | list: `{jobs, next_offset}`, `next_offset` null on the last page; `limit` 1 to 200, default 50 |
 | `GET /v1/jobs/{id}` | get |
 | `PATCH /v1/jobs/{id}` | edit |
 | `GET /v1/jobs/{id}/events` | events, oldest first |

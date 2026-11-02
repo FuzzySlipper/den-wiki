@@ -1,10 +1,11 @@
 zone: trails
-description: "One page per research or curation run, append-only, flat (trails/<slug>.md). Keep all eight sections. The slug is the (trail:<slug>) commit tag. Full rules: rules below and docs/content-contract.md."
+description: "One page per run, append-only, flat (trails/<slug>.md). type names the kind of run: trail (research), round-synthesis, calibration or curation. Keep all eight sections. The slug is the (trail:<slug>) commit tag. Full rules: rules below and docs/content-contract.md."
 mutability: Append-only. Add to a trail while its run is going; never remove or rewrite what it records.
 rules:
   - One file per run, directly in trails/ (no subfolders). The filename without .md is the trail slug used in (trail:<slug>) commit tags.
   - Filenames may carry dates and IDs, for example curation-2026-11-02-weekly.
   - Frontmatter follows schemas/trail.schema.json. Leave finished out until the run ends.
+  - type is the kind of run - trail for a research run, round-synthesis for a research round's synthesis, calibration for one prompt given to several harnesses (read-only), curation for a librarian pass. Set it when the trail is created; trails are append-only, so it is not changed later.
   - Keep all eight sections, in order, even when one is empty - say "None." rather than dropping it.
   - index.md files are generated. Do not edit them.
 template: trail

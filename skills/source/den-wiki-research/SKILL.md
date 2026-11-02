@@ -68,6 +68,8 @@ trail which method you used, or that none applied.
 
 - Given a job id: `job_claim` it with `harness: "{{.Name}}"`.
 - Otherwise `job_create` with the question and `scope_notes`, then claim it.
+  A job's `kind` defaults to `research`; pass `round-synthesis` or
+  `calibration` for those runs.
 - Keep the returned `lease_token`; renew, release and finish need it. Claim
   with `lease_seconds` sized to the run (default 1800, up to 86400), and
   `job_renew` before it ends. A lapsed lease returns the job to `open`.
@@ -100,6 +102,11 @@ harness: {{.Name}}
 ## Proposed changes
 ## Open questions and gaps
 ```
+
+`type` is the kind of run: `trail` for research (an evidence slice of a
+round included), `round-synthesis` for a round's synthesis, `calibration`
+for one prompt given to several harnesses. Set it now; trails are
+append-only, so it is never changed later.
 
 Start with the eight headings and nothing under them. Trails are append-only:
 grow them with `wiki_edit` or a `wiki_write` of the whole file that keeps every
@@ -147,6 +154,11 @@ captured_by_trail: <trail slug>
 ---
 <body>
 ```
+
+Output of our own agents, such as a harness's report captured from a run
+directory, is `type: agent-output`, not `source`. It records the run: cite it
+for what the run found or how a harness worked, never as evidence for a claim
+about the world.
 
 `sha256` is the SHA-256 of the body: every byte after the newline that ends
 the closing `---` line, including any blank line that follows it. Hash and
