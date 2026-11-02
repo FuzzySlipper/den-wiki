@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 const validFixture = "testdata/valid"
@@ -288,6 +289,40 @@ func TestMediaStoreReferences(t *testing.T) {
 	}
 	if !hasFinding(fs, "source.media_missing", "sources/strike-clip.md") || !hasFinding(fs, "source.media_sha256_mismatch", "sources/strike-clip.md") {
 		t.Fatalf("store-backed source:%s", dump(fs))
+	}
+}
+
+// A store-backed source whose stored bytes changed under an unchanged name
+// and frontmatter is a hash mismatch; without the store, only metadata is
+// checked.
+func TestMediaStoreSourceBytesChanged(t *testing.T) {
+	root := copyTree(t, validFixture)
+	store := t.TempDir()
+	clip := []byte("the captured clip")
+	name := bodySHA256(clip) + ".mp4"
+	write(t, store, name, string(clip))
+	write(t, root, "sources/strike-clip.md", "---\ntype: source\nsource_url: https://example.org/clip\ncaptured: 2026-10-28\nsha256: \""+bodySHA256([]byte("Clip.\n"))+"\"\ncaptured_by_trail: agent-memory-research-2026-10-28\nmedia: /media/"+name+"\nmedia_sha256: \""+bodySHA256(clip)+"\"\n---\nClip.\n")
+	if fs := mustLint(t, root, Options{MediaDir: store}); len(fs) != 0 {
+		t.Fatalf("intact stored capture should lint clean:%s", dump(fs))
+	}
+	write(t, store, name, "the captured cl")
+	fs := mustLint(t, root, Options{MediaDir: store})
+	if !hasFinding(fs, "source.media_sha256_mismatch", "sources/strike-clip.md") {
+		t.Fatalf("truncated stored capture:%s", dump(fs))
+	}
+	r, err := Curate(root, CurateOptions{Now: time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC), MediaDir: store})
+	if err != nil {
+		t.Fatal(err)
+	}
+	flagged := false
+	for _, it := range r.Items {
+		flagged = flagged || it.Class == ClassSource && it.Path == "sources/strike-clip.md" && strings.Contains(it.Message, "source.media_sha256_mismatch")
+	}
+	if !flagged {
+		t.Fatalf("the curation scan should list the truncated capture: %+v", r.Items)
+	}
+	if fs := mustLint(t, root, Options{}); hasFinding(fs, "source.media_sha256_mismatch", "sources/strike-clip.md") {
+		t.Fatalf("without a media dir the stored bytes are not read:%s", dump(fs))
 	}
 }
 

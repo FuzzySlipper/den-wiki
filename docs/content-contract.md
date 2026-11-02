@@ -145,8 +145,8 @@ helps. Pages cite it like any source, with a footnote linking to its `.md`
 and quoting its body, and may show the file itself. Lint checks that the file
 exists (`source.media_missing`) and still matches `media_sha256`
 (`source.media_sha256_mismatch`); a store file is named by its hash, so its
-name is checked against `media_sha256`, and its presence when lint is given
-the store (`--media-dir`). Like any capture it is never edited: a new
+name is checked against `media_sha256` and, when lint is given the store
+(`--media-dir`), its presence and that its bytes still hash to that name. Like any capture it is never edited: a new
 version of the file is a new source with `supersedes:`.
 
 `type: agent-output` marks a capture of our own agents' output, such as each
