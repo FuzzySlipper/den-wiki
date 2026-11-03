@@ -1,0 +1,11 @@
+# Review practice
+
+Learned on the librarian's curation passes.
+
+- A research job may be mid-run when the pass starts. Check `job_list` for claimed jobs; its captures carry `captured_by_trail: <slug>` in frontmatter, so uncited sources from a running trail are that run's business. Rescan once the job is `done`; treat the later scan as the working one and record both.
+- Re-read a page right before `wiki_write`. Opening a page in the OpenKnowledge editor (edit.wiki.dragonden.stream) makes OK auto-save it (`wip: auto-save`), re-serialising it (blank lines between footnotes, escapes), so a write built on an earlier read silently reverts that. The reader at wiki.dragonden.stream renders server-side and never saves, so only editor views do this, but Patch or an agent may have one open at any time. Apply edits as find/replace pairs to the fresh text, asserting each find occurs exactly once.
+- A literal `*` inside an italic caption (e.g. `Game*Spark`) gets mangled by the editor's re-save; escape it as `\*`.
+- Big pages (dozens of sources): script the footnote-quote check (fold whitespace and curly quotes, split `...` elisions, whitespace-free fallback for Japanese), then give claims outside quotes to 2-3 read-only sub-agents, one section range each, with local copies of page and sources. Verify every finding against the capture yourself before editing. Expect real findings: a 54k-char page that passed its author's quote script still had ~50.
+- Caption pixel sizes can be checked against the attached file itself: `https://wiki.dragonden.stream/<repo path of the asset>` serves it (the editor host does too).
+- Trails are append-only and `wiki_lint --commits` enforces it per commit (`commit.trail_rewritten`): even extending an existing line in your own trail counts. Put corrections on a new line (find the last line, replace with last line + new line).
+- Each den-wiki deploy copies the template's contract files (`.ok/schemas/`, zone rules, templates) into the content repo, so the live schemas match the deployed den-wiki. If `wiki_audit` (OK, live schemas) warns about something `wiki_lint` (den-wiki) does not, the content repo's contract files have probably been edited by hand since the last deploy, or a schema change is not deployed yet: report it to Patch under "Proposed changes" rather than working around it.

@@ -57,7 +57,8 @@ a change needs Patch's judgement, describe it under "Proposed changes"
 instead. Keep a pass to about 15 changes; the next pass picks up the rest.
 When you edit a page that still has a `sources` list in its frontmatter,
 remove it: the citation footnotes are the page's sources
-(`wiki.sources_field`).
+(`wiki.sources_field`). Read `references/review-practice.md` before editing:
+what earlier passes learned about safe edits, big pages and trail corrections.
 
 - **duplicate:** read both pages. If they are one concept, merge: pick the
   survivor (the better name, more sources and links), fold the other page's
