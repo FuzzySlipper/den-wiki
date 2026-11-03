@@ -88,7 +88,7 @@ func (c *Committer) ReconcileUI(ctx context.Context, opts UIOptions) (UIResult, 
 	}
 	c.writes.Lock()
 	defer c.writes.Unlock()
-	changed, err := c.changedZoneFiles(ctx)
+	changed, err := c.changedContentFiles(ctx)
 	if err != nil {
 		return r, err
 	}
@@ -161,11 +161,13 @@ func (c *Committer) ReconcileUI(ctx context.Context, opts UIOptions) (UIResult, 
 	return r, nil
 }
 
-// changedZoneFiles lists the content-root-relative files under sources/,
-// trails/ and wiki/ that differ from HEAD, untracked ones included and
-// generated index.md files (which commitIndexesLocked handles) left out.
-func (c *Committer) changedZoneFiles(ctx context.Context) ([]string, error) {
-	out, err := c.gitRaw(ctx, nil, "status", "--porcelain", "-z", "--no-renames", "--untracked-files=all", "--", "sources", "trails", "wiki")
+// changedContentFiles lists the content-root-relative files under sources/,
+// trails/ and wiki/, and taxonomy.yml, that differ from HEAD: untracked ones
+// included, generated index.md files (which commitIndexesLocked handles)
+// left out. taxonomy.yml is edited only in OK's editor, since no wiki
+// operation writes it, so without this nothing would commit it (#10561).
+func (c *Committer) changedContentFiles(ctx context.Context) ([]string, error) {
+	out, err := c.gitRaw(ctx, nil, "status", "--porcelain", "-z", "--no-renames", "--untracked-files=all", "--", "sources", "trails", "wiki", "taxonomy.yml")
 	if err != nil {
 		return nil, err
 	}

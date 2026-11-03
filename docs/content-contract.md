@@ -292,7 +292,7 @@ Following provenance is then: a page's git history → each commit → its trail
 the sources the trail accepted and rejected.
 
 A person editing in OpenKnowledge's web UI has no trail. The facade commits
-those changes in the background with `(ui)` in place of the trail tag, or
+those changes, and edits to `taxonomy.yml`, in the background with `(ui)` in place of the trail tag, or
 `(ui:format)` when the change only moves blank lines or trailing whitespace
 (OK's editor re-saves pages in its own formatting when they are viewed). Lint
 accepts both tags in place of `(trail:<slug>)`, and a `(ui:format)` commit

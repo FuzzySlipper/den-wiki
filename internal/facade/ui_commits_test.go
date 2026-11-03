@@ -43,9 +43,11 @@ func TestReconcileUI(t *testing.T) {
 	// A facade write reached disk after its commit gave up.
 	put(t, dir, "wiki/failed.md", "v2\n")
 	c.remember("alpha", "Write wiki/failed.md (trail:run)", []string{"wiki/failed.md"})
-	// Outside the zones; not the reconciler's business.
+	// The taxonomy is edited only in the UI; it is committed like a page.
 	put(t, dir, "taxonomy.yml", "version: 1\n# note\n")
-	for _, p := range []string{"wiki/viewed.md", "sources/capture.md", "wiki/edited.md", "wiki/new-page.md", "wiki/failed.md"} {
+	// Outside the content; not the reconciler's business.
+	put(t, dir, "notes.txt", "scratch\n")
+	for _, p := range []string{"wiki/viewed.md", "sources/capture.md", "wiki/edited.md", "wiki/new-page.md", "wiki/failed.md", "taxonomy.yml"} {
 		age(t, dir, p, 5*time.Minute)
 	}
 
@@ -56,7 +58,7 @@ func TestReconcileUI(t *testing.T) {
 	if len(r.Retried) != 1 || r.Retried[0].Author != "alpha <alpha@den-wiki.local>" || r.Retried[0].Subject != "Write wiki/failed.md (trail:run)" {
 		t.Errorf("retried: %+v", r.Retried)
 	}
-	if len(r.Edits) != 1 || r.Edits[0].Subject != "Edit in the OpenKnowledge UI: wiki/edited.md, wiki/new-page.md (ui)" || r.Edits[0].Author != "ui <ui@den-wiki.local>" {
+	if len(r.Edits) != 1 || r.Edits[0].Subject != "Edit in the OpenKnowledge UI: taxonomy.yml, wiki/edited.md, wiki/new-page.md (ui)" || r.Edits[0].Author != "ui <ui@den-wiki.local>" {
 		t.Errorf("edits: %+v", r.Edits)
 	}
 	// A whitespace-only source change is recorded, not reverted: it may be
@@ -70,12 +72,12 @@ func TestReconcileUI(t *testing.T) {
 	if got := read(t, dir, "sources/capture.md"); got != "---\nurl: x\n---\nCaptured.\n" {
 		t.Errorf("source edit not kept: %q", got)
 	}
-	for sha, files := range map[string]string{r.Retried[0].SHA: "wiki/failed.md", r.Edits[0].SHA: "wiki/edited.md\nwiki/new-page.md", r.Format.SHA: "sources/capture.md\nwiki/viewed.md"} {
+	for sha, files := range map[string]string{r.Retried[0].SHA: "wiki/failed.md", r.Edits[0].SHA: "taxonomy.yml\nwiki/edited.md\nwiki/new-page.md", r.Format.SHA: "sources/capture.md\nwiki/viewed.md"} {
 		if got := gitIn(t, dir, "show", "--name-only", "--format=", sha); got != files {
 			t.Errorf("commit %s has %q, want %q", sha[:7], got, files)
 		}
 	}
-	if st := gitIn(t, dir, "status", "--porcelain"); st != "M taxonomy.yml\n M wiki/typing.md" {
+	if st := gitIn(t, dir, "status", "--porcelain"); st != "M wiki/typing.md\n?? notes.txt" {
 		t.Errorf("status:\n%s", st)
 	}
 

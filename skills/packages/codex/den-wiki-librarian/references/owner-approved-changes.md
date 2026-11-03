@@ -9,10 +9,9 @@ proposed.
 `taxonomy.yml` is not a zone file, so `wiki_write`/`wiki_edit` cannot touch
 it, and the content repo lives inside the den-wiki container (192.168.1.13,
 `/srv/den-wiki-content`). The NAS copy is a push mirror: changing it would
-only diverge. Edit it in the OpenKnowledge web editor. Nothing commits the
-change for you: den-wiki's background commits of UI edits cover only
-`sources/`, `trails/` and `wiki/`, so the edit stays on disk, uncommitted
-and missing from the NAS backup, until someone commits it (step 5).
+only diverge. Edit it in the OpenKnowledge web editor. den-wiki's background
+UI commits pick the file up and commit it as `(ui)` once it has gone a
+minute (`ui_commits.quiet`) without changing.
 
 1. Browser: open `https://edit.wiki.dragonden.stream/#/taxonomy.yml`. Read the
    current text from `.cm-content .cm-line` elements to match the entry
@@ -28,17 +27,11 @@ and missing from the NAS backup, until someone commits it (step 5).
 4. The editor autosaves. Confirm with `wiki_taxonomy` (the entry is listed)
    and `wiki_lint`, not with the editor. Both read the file on disk, so they
    show the change before it is committed.
-5. Commit it on the den-wiki container, as `denwiki`, with your trail's tag:
-   `git -C /srv/den-wiki-content commit -m "<what changed> (trail:<slug>)"
-   -- taxonomy.yml`. Name the file so other pending edits stay out of the
-   commit. If you have no shell on the container, say under "Proposed
-   changes" in your trail, and in your run report, that `taxonomy.yml` has an
-   uncommitted approved edit, so Patch or a session with container access
-   commits it.
-6. Tag or sort the pages with `wiki_edit` frontmatter patches (`tags` is
+5. Tag or sort the pages with `wiki_edit` frontmatter patches (`tags` is
    replaced whole, so include existing tags; `topic` is one value) under a
    short curation trail (`type: curation`, `curation-<date>-<what>`)
-   recording the taxonomy edit, its commit and each page.
+   recording the taxonomy edit and each page. The UI commit of `taxonomy.yml`
+   follows within a couple of minutes; it carries `(ui)`, not your trail tag.
 
 A tag description can carry a framing Patch cares about. For example,
 `geopolitics` covers "Wars, states and international relations, and the

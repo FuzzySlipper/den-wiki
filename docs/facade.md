@@ -206,8 +206,10 @@ frontmatter). The UI reconciler (`Committer.ReconcileUI`, run by `den-wiki
 serve` every `ui_commits.interval`) commits these changes so they reach
 history and the backup. It takes the same write lock as the wiki operations,
 so it never runs inside a facade write. Each pass looks at the files under
-`sources/`, `trails/` and `wiki/` that differ from HEAD (generated `index.md`
-files excepted) and:
+`sources/`, `trails/` and `wiki/`, and `taxonomy.yml`, that differ from HEAD
+(generated `index.md` files excepted). `taxonomy.yml` is included because no
+wiki operation writes it: Patch's approved taxonomy changes are made in OK's
+editor, and nothing else would commit them (#10561). Each pass then:
 
 1. commits paths a facade write left uncommitted under that write's agent and
    subject, once they reach disk. Such a path stays pending until a commit of
