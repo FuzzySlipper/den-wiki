@@ -88,7 +88,9 @@ func (s *site) doc(rel string) (*Doc, error) {
 	s.mu.Lock()
 	c, ok := s.docs[rel]
 	s.mu.Unlock()
-	if ok && c.mod.Equal(st.ModTime()) && c.size == st.Size() {
+	// A render also depends on the files it links to and cites: a link turns
+	// red or blue, and References show each source's URL.
+	if ok && c.mod.Equal(st.ModTime()) && c.size == st.Size() && c.doc.fresh(s.root) {
 		return c.doc, nil
 	}
 	d, err := Render(s.root, rel)

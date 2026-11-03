@@ -13,12 +13,21 @@ wiki.dragonden.stream {
 
 # edit.wiki.dragonden.stream is the OpenKnowledge editor, which gives full
 # control to whoever reaches it. Its SPA cannot run under a sub-path, so it
-# has its own host; ok-wiki.service's --external-url names it.
+# has its own host; ok-wiki.service's --external-url names it. Pages embed
+# media store files as root-relative /media/<sha256>.<ext>, which only
+# den-wiki serves, so that path goes to den-wiki here too.
 edit.wiki.dragonden.stream {
-	reverse_proxy 192.168.1.13:4800 {
-		# Close streams on a timer after a reload so one stuck
-		# WebSocket client cannot hang the reload.
-		stream_close_delay 5m
-		flush_interval -1
+	handle /media/* {
+		reverse_proxy 192.168.1.13:7341 {
+			stream_close_delay 5m
+		}
+	}
+	handle {
+		reverse_proxy 192.168.1.13:4800 {
+			# Close streams on a timer after a reload so one stuck
+			# WebSocket client cannot hang the reload.
+			stream_close_delay 5m
+			flush_interval -1
+		}
 	}
 }

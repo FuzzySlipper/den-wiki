@@ -14,6 +14,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
@@ -55,6 +56,34 @@ type Doc struct {
 	Citations int
 	// Mermaid and Math say which scripts the page needs.
 	Mermaid, Math bool
+	// deps are the other files the render looked at (link targets and cited
+	// sources), as they were: a cached render is stale once one changes.
+	deps map[string]fileState
+}
+
+// fileState is what a render saw of a file.
+type fileState struct {
+	exists bool
+	mod    time.Time
+	size   int64
+}
+
+func statOf(root *os.Root, rel string) fileState {
+	st, err := root.Stat(rel)
+	if err != nil {
+		return fileState{}
+	}
+	return fileState{exists: true, mod: st.ModTime(), size: st.Size()}
+}
+
+// fresh reports whether every file the render depended on is as it was.
+func (d *Doc) fresh(root *os.Root) bool {
+	for rel, was := range d.deps {
+		if statOf(root, rel) != was {
+			return false
+		}
+	}
+	return true
 }
 
 var md = goldmark.New(
@@ -88,7 +117,7 @@ func Render(root *os.Root, rel string) (*Doc, error) {
 		// A broken frontmatter block is shown as part of the text.
 		fields, body = content.Frontmatter{}, src
 	}
-	d := &Doc{Path: rel, Fields: fields, Title: fields.Str("title")}
+	d := &Doc{Path: rel, Fields: fields, Title: fields.Str("title"), deps: map[string]fileState{}}
 	if d.Title == "" {
 		d.Title = fields.Str("question")
 	}
@@ -113,9 +142,18 @@ type state struct {
 	root *os.Root
 }
 
+// exists checks a file the page refers to, and records it as a dependency.
 func (s *state) exists(rel string) bool {
-	_, err := s.root.Stat(rel)
-	return err == nil
+	return s.depend(rel).exists
+}
+
+func (s *state) depend(rel string) fileState {
+	if st, ok := s.doc.deps[rel]; ok {
+		return st
+	}
+	st := statOf(s.root, rel)
+	s.doc.deps[rel] = st
+	return st
 }
 
 // Href maps a link target in the page at rel to a reader URL. Content paths
@@ -274,6 +312,7 @@ func (s *state) citation(fn *east.Footnote) string {
 		if !ok || !strings.HasPrefix(rel, "sources/") || !strings.HasSuffix(rel, ".md") {
 			return ast.WalkContinue, nil
 		}
+		s.depend(rel)
 		out = content.SourceURL(s.root, rel)
 		if out == "" {
 			out = "-"

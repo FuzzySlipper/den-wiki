@@ -245,3 +245,35 @@ func TestScriptsLoadOnlyWhenNeeded(t *testing.T) {
 	_, _, body := get(t, srv, "/wiki/maths")
 	mustContain(t, body, "/static/vendor/katex/katex.min.css", "/static/vendor/katex/katex.min.js", "/static/vendor/mermaid.min.js")
 }
+
+// A cached render follows the files it links to and cites, not only its own
+// file (review R10558-1).
+func TestCachedRenderFollowsLinkedFiles(t *testing.T) {
+	srv, dir := newTestServer(t, nil)
+	write := func(rel, body string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, filepath.FromSlash(rel)), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("wiki/linker.md", page("Linker", "dev", "concept", "See [later](later.md).[^1]\n\n[^1]: [The survey page](../sources/survey.md) \"spells are drawn\""))
+	red := `<a href="/wiki/later" class="new"`
+	_, _, body := get(t, srv, "/wiki/linker")
+	mustContain(t, body, red, `<a class="original" href="https://example.org/s"`)
+
+	write("wiki/later.md", page("Later", "dev", "concept", "Now it exists."))
+	_, _, body = get(t, srv, "/wiki/linker")
+	if strings.Contains(body, red) || !strings.Contains(body, `<a href="/wiki/later">later</a>`) {
+		t.Error("link still red after its target was created")
+	}
+
+	if err := os.Remove(filepath.Join(dir, "wiki/later.md")); err != nil {
+		t.Fatal(err)
+	}
+	_, _, body = get(t, srv, "/wiki/linker")
+	mustContain(t, body, red)
+
+	write("sources/survey.md", "---\ntype: source\ntitle: A survey\nsource_url: https://example.org/moved-survey\ncaptured: 2026-10-01\ncaptured_by_trail: run\n---\n\nCaptured text.\n")
+	_, _, body = get(t, srv, "/wiki/linker")
+	mustContain(t, body, `<a class="original" href="https://example.org/moved-survey"`)
+}

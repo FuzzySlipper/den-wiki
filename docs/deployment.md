@@ -53,8 +53,11 @@ Cloudflare DNS issuer.
   `/version`, `/v1/*` and `/media/*`. den-services doc-publish (CT 106)
   fetches pages shared with `wiki_publish` through it, from `/v1/export`.
 - **`edit.wiki.dragonden.stream`** goes to the OK editor, with its `/collab`
-  WebSocket (#10558). OK's single-page app cannot run under a sub-path, so it
-  needs its own host. The host needs a DNS record like the other LAN names.
+  WebSocket (#10558). The exception is `/media/*`, which goes to den-wiki:
+  pages embed media store files as root-relative `/media/<sha256>.<ext>`, and
+  only den-wiki serves them. OK's single-page app cannot run under a sub-path,
+  so it needs its own host. The host needs a DNS record like the other LAN
+  names.
 
 Neither host has auth: both are LAN-only, like `den.dragonden.stream`. OK has
 no user accounts and gives full control to whoever reaches it. The container
@@ -124,7 +127,10 @@ touched. Then check `den-wiki health`.
    (`scripts/ok-integration.sh`, CI job `ok-integration`).
 2. Deploy as above. The new version is staged in `/opt/openknowledge/<new>`,
    `current` flips to it, and OK restarts. The old version stays installed.
-3. Check `den-wiki health`, a `wiki_read`, and the UI.
+3. Check `den-wiki health`, a `wiki_read`, the reader at
+   `https://wiki.dragonden.stream/`, and the editor at
+   `https://edit.wiki.dragonden.stream/` on a page that embeds a `/media/`
+   clip, which must play there too.
 4. Roll back: `ln -sfn /opt/openknowledge/<old> /opt/openknowledge/current &&
    systemctl restart ok-wiki den-wiki`, and revert `scripts/ok-version`.
 
