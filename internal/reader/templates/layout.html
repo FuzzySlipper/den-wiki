@@ -1,0 +1,166 @@
+{{define "layout.html"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}}{{if ne .Title .Site}} · {{.Site}}{{end}}</title>
+<link rel="stylesheet" href="/static/reader.css">
+{{if .Doc}}{{if .Doc.Math}}<link rel="stylesheet" href="/static/vendor/katex/katex.min.css">{{end}}{{end}}
+</head>
+<body>
+<header class="top">
+  <button class="drawer-toggle" type="button" data-drawer="nav" aria-controls="nav" aria-expanded="false" aria-label="Topics">☰</button>
+  <a class="site" href="/">{{.Site}}</a>
+  <form class="search" action="/search" role="search">
+    <input type="search" name="q" value="{{.Query}}" placeholder="Search the wiki" aria-label="Search the wiki">
+  </form>
+  {{if .Doc}}<button class="drawer-toggle" type="button" data-drawer="aside" aria-controls="aside" aria-expanded="false" aria-label="About this page">ⓘ</button>{{end}}
+</header>
+<div class="panes">
+  <nav id="nav" class="nav" aria-label="Topics">
+    {{template "tree" .}}
+  </nav>
+  <main class="main">
+    {{if .Doc}}{{template "doc" .}}
+    {{else if .Topic}}{{template "topic" .}}
+    {{else if .Search}}{{template "search" .}}
+    {{else if .Missing}}{{template "missing" .}}
+    {{else}}{{template "home" .}}{{end}}
+  </main>
+  {{if .Doc}}<aside id="aside" class="aside" aria-label="About this page">{{template "aside" .}}</aside>{{end}}
+</div>
+<script src="/static/reader.js" defer></script>
+{{if .Doc}}{{if .Doc.Math}}<script src="/static/vendor/katex/katex.min.js" defer></script>{{end}}
+{{if .Doc.Mermaid}}<script src="/static/vendor/mermaid.min.js" defer></script>{{end}}{{end}}
+</body>
+</html>{{end}}
+
+{{define "tree"}}
+<ul class="tree">
+  {{range .Lib.Topics}}{{template "treenode" (treeArgs . $.Current)}}{{end}}
+  {{if .Lib.Unsorted}}<li class="tree-item"><a class="tree-topic{{if eq .Current "unsorted"}} current{{end}}" href="/unsorted">Unsorted</a> <span class="count">{{len .Lib.Unsorted}}</span></li>{{end}}
+</ul>
+{{end}}
+
+{{define "treenode"}}{{$t := .Topic}}
+<li class="tree-item">
+  <details{{if .Open}} open{{end}}>
+    <summary><a class="tree-topic{{if .Here}} current{{end}}" href="/topic/{{$t.Name}}">{{titleOf $t.Name}}</a> <span class="count">{{$t.Total}}</span></summary>
+    <ul>
+      {{range $t.Children}}{{template "treenode" (treeArgs . $.Current)}}{{end}}
+      {{range $t.Pages}}<li class="tree-page"><a href="{{.URL}}"{{if eq .Path $.Current}} class="current" aria-current="page"{{end}}>{{.Title}}</a></li>{{end}}
+    </ul>
+  </details>
+</li>{{end}}
+
+{{define "home"}}
+<h1>{{.Site}}</h1>
+<p class="lede">{{.Lib.Count}} pages{{if .Lib.Unreviewed}}, {{.Lib.Unreviewed}} not yet reviewed{{end}}.</p>
+<div class="topic-grid">
+  {{range .Lib.Topics}}
+  <section class="topic-card">
+    <h2><a href="/topic/{{.Name}}">{{titleOf .Name}}</a> <span class="count">{{.Total}}</span></h2>
+    <p>{{.Description}}</p>
+    {{if .Children}}<p class="subtopics">{{range $i, $c := .Children}}{{if $i}} · {{end}}<a href="/topic/{{$c.Name}}">{{titleOf $c.Name}}</a> <span class="count">{{$c.Total}}</span>{{end}}</p>{{end}}
+  </section>
+  {{end}}
+  {{if .Lib.Unsorted}}<section class="topic-card"><h2><a href="/unsorted">Unsorted</a> <span class="count">{{len .Lib.Unsorted}}</span></h2><p>Pages with no topic yet.</p></section>{{end}}
+</div>
+{{if .Lib.Recent}}
+<h2>Recently updated</h2>
+<ul class="listing">{{range .Lib.Recent}}{{template "entry" .}}{{end}}</ul>
+{{end}}
+{{end}}
+
+{{define "entry"}}
+<li><a href="{{.URL}}">{{.Title}}</a>{{if eq .Type "hub"}} <span class="badge">hub</span>{{end}}{{if ne .Curation "curated"}} <span class="badge muted">unreviewed</span>{{end}}{{if .Updated}} <span class="date">{{.Updated}}</span>{{end}}
+{{if .Lede}}<p>{{.Lede}}</p>{{end}}</li>
+{{end}}
+
+{{define "topic"}}{{$t := .Topic}}
+<p class="crumbs"><a href="/">Home</a>{{range $t.Ancestors}} › <a href="/topic/{{.Name}}">{{titleOf .Name}}</a>{{end}}</p>
+<h1>{{titleOf $t.Name}}</h1>
+{{if $t.Description}}<p class="lede">{{$t.Description}}</p>{{end}}
+{{if $t.Children}}
+<h2>Subtopics</h2>
+<ul class="listing">{{range $t.Children}}<li><a href="/topic/{{.Name}}">{{titleOf .Name}}</a> <span class="count">{{.Total}}</span>{{if .Description}}<p>{{.Description}}</p>{{end}}</li>{{end}}</ul>
+{{end}}
+{{if $t.Pages}}
+<h2>Pages</h2>
+<ul class="listing">{{range $t.Pages}}{{template "entry" .}}{{end}}</ul>
+{{else if not $t.Children}}<p>No pages yet.</p>{{end}}
+{{end}}
+
+{{define "search"}}
+<h1>Search</h1>
+{{if .Search.Unavailable}}<p class="notice">{{.Search.Unavailable}}</p>{{end}}
+{{if .Query}}
+  {{if .Search.Results}}
+  <ul class="listing">{{range .Search.Results}}<li><a href="{{url .Path}}">{{.Title}}</a> <span class="path">{{.Path}}</span>{{if .Snippet}}<p>{{.Snippet}}</p>{{end}}</li>{{end}}</ul>
+  {{else if not .Search.Unavailable}}<p>Nothing matches “{{.Query}}”.</p>{{end}}
+{{end}}
+{{end}}
+
+{{define "missing"}}
+<h1>{{.Title}}</h1>
+<p>There is no {{.Missing}} in the wiki yet. <a href="/search?q={{.Missing}}">Search for it</a>{{if .Edit}}, or <a href="{{.Edit}}">create it in OpenKnowledge</a>{{end}}.</p>
+{{end}}
+
+{{define "doc"}}{{$d := .Doc}}
+<article class="page zone-{{$d.Zone}}">
+  {{if $d.TopicNode}}<p class="crumbs"><a href="/">Home</a>{{range $d.TopicNode.Ancestors}} › <a href="/topic/{{.Name}}">{{titleOf .Name}}</a>{{end}} › <a href="/topic/{{$d.TopicNode.Name}}">{{titleOf $d.TopicNode.Name}}</a></p>
+  {{else if ne $d.Zone "wiki"}}<p class="crumbs"><a href="/">Home</a> › {{if eq $d.Zone "sources"}}Captured source{{else}}Research trail{{end}}</p>{{end}}
+  <h1>{{$d.Title}}</h1>
+  <p class="byline">
+    {{with $d.Fields.Str "type"}}<span class="badge">{{.}}</span>{{end}}
+    {{if eq $d.Zone "wiki"}}{{if ne ($d.Fields.Str "curation") "curated"}}<span class="badge muted">unreviewed</span>{{end}}{{end}}
+    {{with $d.Fields.Str "updated"}}<span class="date">Updated {{.}}</span>{{end}}
+    {{if $.Edit}}<a class="edit" href="{{$.Edit}}">Edit in OpenKnowledge</a>{{end}}
+  </p>
+  {{if eq $d.Zone "sources"}}<dl class="source-meta">
+    {{with $d.SourceURL}}<dt>Original</dt><dd><a href="{{.}}" rel="noopener noreferrer">{{.}}</a></dd>{{end}}
+    {{with $d.Fields.Str "captured"}}<dt>Captured</dt><dd>{{.}}</dd>{{end}}
+    {{with $d.Fields.Str "captured_by_trail"}}<dt>By trail</dt><dd><a href="/trails/{{.}}">{{.}}</a></dd>{{end}}
+    {{with $d.Fields.Str "supersedes"}}<dt>Supersedes</dt><dd><a href="{{url .}}">{{.}}</a></dd>{{end}}
+  </dl>{{end}}
+  <div class="body">{{$d.Body}}</div>
+</article>
+{{end}}
+
+{{define "aside"}}{{$d := .Doc}}
+{{if gt (len $d.Contents) 1}}
+<section class="contents">
+  <h2>Contents</h2>
+  <ol>{{range $d.Contents}}<li class="toc-{{.Level}}"><a href="#{{.ID}}">{{.Text}}</a></li>{{end}}</ol>
+</section>
+{{end}}
+{{if eq $d.Zone "wiki"}}
+<section class="infobox">
+  <h2>About this page</h2>
+  <dl>
+    {{with $d.Fields.Str "type"}}<dt>Type</dt><dd>{{.}}</dd>{{end}}
+    {{if $d.TopicNode}}<dt>Topic</dt><dd><a href="/topic/{{$d.TopicNode.Name}}">{{titleOf $d.TopicNode.Name}}</a></dd>{{else}}<dt>Topic</dt><dd><a href="/unsorted">unsorted</a></dd>{{end}}
+    {{if $d.Tags}}<dt>Tags</dt><dd>{{range $i, $t := $d.Tags}}{{if $i}}, {{end}}{{$t}}{{end}}</dd>{{end}}
+    {{with $d.Fields.Str "confidence"}}<dt>Confidence</dt><dd>{{.}}</dd>{{end}}
+    <dt>Curation</dt><dd>{{or ($d.Fields.Str "curation") "unreviewed"}}</dd>
+    <dt>Volatility</dt><dd>{{or ($d.Fields.Str "volatility") "warm"}}</dd>
+    {{with $d.Fields.Str "verified"}}<dt>Verified</dt><dd>{{.}}</dd>{{end}}
+    {{with $d.Fields.Str "updated"}}<dt>Updated</dt><dd>{{.}}</dd>{{end}}
+    {{if $d.Citations}}<dt>Citations</dt><dd><a href="#references">{{$d.Citations}}</a></dd>{{end}}
+    {{if $d.Aliases}}<dt>Also known as</dt><dd>{{range $i, $a := $d.Aliases}}{{if $i}}; {{end}}{{$a}}{{end}}</dd>{{end}}
+    {{if $d.Conflicts}}<dt>Contradicts</dt><dd>{{range $i, $c := $d.Conflicts}}{{if $i}}, {{end}}<a href="{{url $c}}">{{$c}}</a>{{end}}</dd>{{end}}
+  </dl>
+</section>
+{{end}}
+{{if $d.Unavailable}}<p class="notice">{{$d.Unavailable}}</p>{{end}}
+{{with $d.Briefing}}
+<section class="backlinks">
+  <h2>What links here</h2>
+  {{if .Backlinks}}<ul>{{range .Backlinks}}<li><a href="{{url .Path}}">{{.Title}}</a></li>{{end}}</ul>{{else}}<p class="muted">Nothing links here yet.</p>{{end}}
+</section>
+<section class="history">
+  <h2>History</h2>
+  {{if .History}}<ol>{{range .History}}<li><span class="date">{{.Date}}</span> {{.Subject}}{{if .Trail}} <a href="/trails/{{.Trail}}">trail</a>{{end}} <span class="muted">{{.Author}}</span></li>{{end}}</ol>{{else}}<p class="muted">No history.</p>{{end}}
+</section>
+{{end}}
+{{end}}

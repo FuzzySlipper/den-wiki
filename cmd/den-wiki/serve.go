@@ -19,6 +19,7 @@ import (
 	"github.com/FuzzySlipper/den-wiki/internal/ledger"
 	"github.com/FuzzySlipper/den-wiki/internal/media"
 	"github.com/FuzzySlipper/den-wiki/internal/okclient"
+	"github.com/FuzzySlipper/den-wiki/internal/reader"
 )
 
 // leaseSweep is how often serve expires lapsed leases in the background.
@@ -30,7 +31,7 @@ func runServe(args []string, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	cfgPath := fs.String("config", "", "server config file (YAML; see docs/facade.md)")
 	fs.Usage = func() {
-		fmt.Fprint(stderr, "Usage: den-wiki serve --config <file>\n\nRuns the den-wiki service: the MCP facade at /mcp, the ledger API at /v1/jobs,\n/healthz and /version, in one process.\n\nFlags:\n")
+		fmt.Fprint(stderr, "Usage: den-wiki serve --config <file>\n\nRuns the den-wiki service: the MCP facade at /mcp, the ledger API at /v1/jobs,\n/healthz and /version, and the read-only reader at every other path, in one\nprocess.\n\nFlags:\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -86,6 +87,18 @@ func serve(ctx context.Context, cfg config.Server, logger *slog.Logger, ready ch
 	}
 	if cfg.OpenKnowledge.URL != "" {
 		deps.Wiki = facade.NewOKWiki(okclient.New(cfg.OpenKnowledge.URL, cfg.OpenKnowledge.Timeout))
+	}
+	if cfg.ContentDir != "" && !cfg.Reader.Disabled {
+		rc := reader.Config{ContentDir: cfg.ContentDir, SiteTitle: cfg.Reader.SiteTitle, EditURL: cfg.Reader.EditURL, Logger: logger}
+		if deps.Wiki != nil {
+			rc.Backend = facade.NewReaderBackend(deps.Wiki)
+		}
+		rd, err := reader.New(rc)
+		if err != nil {
+			return fmt.Errorf("reader: %w", err)
+		}
+		defer rd.Close()
+		deps.Reader = rd
 	}
 	reg, err := facade.NewRegistry(deps)
 	if err != nil {

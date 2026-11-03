@@ -32,9 +32,12 @@ type Deps struct {
 	// DefaultPublishTimeout.
 	PublishURL     string
 	PublishTimeout time.Duration
-	Reads          ReadLog
-	Logger         *slog.Logger
-	Clock          func() time.Time
+	// Reader is the read-only wiki reader, served at every path the facade
+	// does not claim; nil serves none.
+	Reader http.Handler
+	Reads  ReadLog
+	Logger *slog.Logger
+	Clock  func() time.Time
 }
 
 // Operations returns every den-wiki operation over deps. The MCP handler and
@@ -86,8 +89,8 @@ func Version() string {
 }
 
 // NewServer returns the facade's HTTP handler: /mcp, the ledger's /v1/jobs
-// API, /healthz, /version, /v1/export for shared pages (with a content dir)
-// and, with a media store, /media/.
+// API, /healthz, /version, /v1/export for shared pages (with a content dir),
+// with a media store /media/, and with a reader every other path.
 func NewServer(d Deps, reg *registry.Registry) http.Handler {
 	if d.Clock == nil {
 		d.Clock = time.Now
@@ -103,6 +106,9 @@ func NewServer(d Deps, reg *registry.Registry) http.Handler {
 		h := exportHandler(d.ContentDir)
 		mux.Handle("GET /v1/export", h)
 		mux.Handle("GET /v1/export/asset", h)
+	}
+	if d.Reader != nil {
+		mux.Handle("/", d.Reader)
 	}
 	mux.HandleFunc("GET /version", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"service": "den-wiki", "commit": version, "catalog_revision": reg.Revision()})

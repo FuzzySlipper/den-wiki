@@ -35,6 +35,20 @@ type Server struct {
 	Media Media `yaml:"media"`
 	// Publish is where wiki_publish sends a page to be shared on the blog.
 	Publish Publish `yaml:"publish"`
+	// Reader is the read-only wiki reader served at /. It needs content_dir.
+	Reader Reader `yaml:"reader"`
+}
+
+// Reader configures the read-only reader.
+type Reader struct {
+	// Disabled turns the reader off.
+	Disabled bool `yaml:"disabled"`
+	// SiteTitle names the wiki in the reader's header; default "den-wiki".
+	SiteTitle string `yaml:"site_title"`
+	// EditURL is OpenKnowledge's editor, e.g.
+	// https://edit.wiki.dragonden.stream; each page links to itself there.
+	// Empty hides the link.
+	EditURL string `yaml:"edit_url"`
 }
 
 // Publish locates doc-publish, the den-services service that writes shared
@@ -164,6 +178,9 @@ func (s Server) Validate() error {
 	}
 	if s.Publish.Timeout < 0 {
 		return fmt.Errorf("publish.timeout must not be negative")
+	}
+	if u := s.Reader.EditURL; u != "" && !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
+		return fmt.Errorf("reader.edit_url %q must be an http(s) URL", u)
 	}
 	return nil
 }
