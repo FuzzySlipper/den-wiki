@@ -19,8 +19,8 @@ LAN: den-wiki has no auth of its own.
 The facade owns tool names, schemas and descriptions, discovery profiles, the
 catalog revision, aliases and routing. It owns no domain state: jobs live in
 the ledger, content lives in the den-wiki-content repo that OpenKnowledge (OK)
-serves. OK is a pinned npm package (`scripts/ok-version`) run unmodified and
-reached only over its MCP endpoint; it is GPL-3 and never vendored or linked.
+serves. OK is a pinned npm package (`scripts/ok-version`) reached over its MCP
+endpoint.
 
 ## Operations
 
