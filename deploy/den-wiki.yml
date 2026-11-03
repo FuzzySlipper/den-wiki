@@ -20,3 +20,7 @@ ui_commits:
   author: ui
   interval: 30s
   quiet: 60s
+# The read-only reader at https://wiki.dragonden.stream/; "Edit in
+# OpenKnowledge" links go to the editor's own host.
+reader:
+  edit_url: https://edit.wiki.dragonden.stream

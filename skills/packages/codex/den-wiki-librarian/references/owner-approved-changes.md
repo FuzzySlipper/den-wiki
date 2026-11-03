@@ -12,7 +12,7 @@ it, and the content repo lives inside the den-wiki container (192.168.1.13,
 only diverge. Apply the edit through the OpenKnowledge web editor, which
 commits it as `(ui)`:
 
-1. Browser: open `https://wiki.dragonden.stream/#/taxonomy.yml`. Read the
+1. Browser: open `https://edit.wiki.dragonden.stream/#/taxonomy.yml`. Read the
    current text from `.cm-content .cm-line` elements to match the entry
    format (`- name:` / `description:` / optional `parent:`).
 2. Click on the visible text of the last tag's `description` line. The

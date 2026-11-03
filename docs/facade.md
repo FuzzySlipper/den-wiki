@@ -8,7 +8,9 @@
 - `/v1/export` and `/v1/export/asset`: one wiki page rendered for sharing,
   and its images ([Sharing a page](#sharing-a-page));
 - `/healthz` (ledger and OpenKnowledge checks) and `/version` (commit and
-  catalog revision).
+  catalog revision);
+- every other path: the read-only reader ([reader.md](reader.md)), when
+  `content_dir` is set.
 
 Configuration is a YAML file ([example](../configs/den-wiki.example.yml)),
 never environment variables. The listen address must be loopback or private

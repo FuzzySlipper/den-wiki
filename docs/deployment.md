@@ -19,14 +19,14 @@ den-wiki runs in its own LXC on den-prox-mini (Proxmox host `prox`,
 | Unit | Runs | Listens |
 |---|---|---|
 | `ok-wiki.service` | OpenKnowledge (UI and MCP), user `denwiki`, cwd `/srv/den-wiki-content` | `0.0.0.0:4800` |
-| `den-wiki.service` | `den-wiki serve --config /etc/den-wiki/den-wiki.yml` (MCP facade, ledger, content commits, and the background commits of UI changes), user `denwiki` | `192.168.1.13:7341` |
+| `den-wiki.service` | `den-wiki serve --config /etc/den-wiki/den-wiki.yml` (MCP facade, ledger, content commits, the background commits of UI changes, and the read-only reader), user `denwiki` | `192.168.1.13:7341` |
 | `den-wiki-push.timer` | `den-wiki-push.service` every 15 minutes: `git push` of `main` to every remote of the content repo | — |
 | `nftables.service` | `/etc/nftables.conf`: ports 4800 and 7341 accept only loopback and Caddy (192.168.1.6) | — |
 
 The facade reaches OK's MCP on loopback (`http://127.0.0.1:4800/mcp`). OK
 serves the UI to Caddy, which needs `server.allowExternal` (in the untracked
 `/srv/den-wiki-content/.ok/local/config.yml`) and `--external-url
-https://wiki.dragonden.stream`. `KillMode=control-group` stops OK's detached
+https://edit.wiki.dragonden.stream`. `KillMode=control-group` stops OK's detached
 server process with the unit.
 
 ## Paths
@@ -44,17 +44,24 @@ server process with the unit.
 
 ## Caddy
 
-CT 104's `/etc/caddy/Caddyfile` has the block in
+CT 104's `/etc/caddy/Caddyfile` has the two blocks in
 `deploy/caddy/wiki.dragonden.stream.caddy`. Certificates come from the global
-Cloudflare DNS issuer. `/mcp`, `/healthz`, `/version`, `/v1/*` and `/media/*` go to the
-den-wiki service, and everything else to the OK UI. den-services
-doc-publish (CT 106) fetches pages shared with `wiki_publish` through this
-block, from `/v1/export`. Neither has auth: the site
-is LAN-only, like `den.dragonden.stream`. OK has no user accounts and gives
-full control to whoever reaches it. The container firewall makes Caddy the
-only way in, so a login can be added back in one place: a `basic_auth` block
-(one line per user, `caddy hash-password` for each hash, no complexity rules)
-in the UI's `handle`, then `systemctl reload caddy`.
+Cloudflare DNS issuer.
+
+- **`wiki.dragonden.stream`** goes to the den-wiki service: the read-only
+  reader ([reader.md](reader.md)) at `/`, plus `/mcp`, `/healthz`,
+  `/version`, `/v1/*` and `/media/*`. den-services doc-publish (CT 106)
+  fetches pages shared with `wiki_publish` through it, from `/v1/export`.
+- **`edit.wiki.dragonden.stream`** goes to the OK editor, with its `/collab`
+  WebSocket (#10558). OK's single-page app cannot run under a sub-path, so it
+  needs its own host. The host needs a DNS record like the other LAN names.
+
+Neither host has auth: both are LAN-only, like `den.dragonden.stream`. OK has
+no user accounts and gives full control to whoever reaches it. The container
+firewall makes Caddy the only way in, so a login can be added back in one
+place: a `basic_auth` block (one line per user, `caddy hash-password` for
+each hash, no complexity rules) in the editor's block, then
+`systemctl reload caddy`.
 
 After editing the Caddyfile, apply it with
 `systemctl reload caddy`. Every `reverse_proxy` on CT 104 sets

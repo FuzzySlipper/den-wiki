@@ -38,3 +38,12 @@ ui_commits:
   author: ui        # git author of UI commits
   interval: 30s     # how often to look for changes
   quiet: 60s        # how long a file must go unchanged before it is committed
+
+# The read-only reader, served at every path the facade does not claim
+# (docs/reader.md). It needs content_dir; backlinks, history and search also
+# need openknowledge. edit_url is OK's editor: each page links to itself
+# there. Empty hides the link.
+reader:
+  disabled: false
+  site_title: den-wiki
+  edit_url: https://edit.wiki.dragonden.stream
