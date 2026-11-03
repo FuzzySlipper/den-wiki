@@ -2,6 +2,7 @@
 type: concept
 title: Retrieval-augmented generation
 aliases: [RAG]
+topic: agents
 tags: [ai]
 curation: curated
 updated: 2026-10-20

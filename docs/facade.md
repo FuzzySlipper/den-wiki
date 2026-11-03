@@ -71,10 +71,11 @@ Markdown only; the taxonomy is YAML in the content dir, and agents want it
 parsed, with the pages using each tag and the tags pages use without a
 taxonomy entry. It starts in the default tier because every research run
 needs it before writing a page: in #10467 all four harness runs looked for the
-tag list and found none. The result: `present`, `version`, `types` and `tags`
-(each `name`, `description`, `parent` for tags, and `pages`),
-`unlisted_types` and `unlisted_tags` (`name`, `pages`), and the `taxonomy.*`
-lint `findings`. Lint stays the enforcement: an unknown tag is still a
+tag list and found none. The result: `present`, `version`, `types`, `tags` and
+`topics` (each `name`, `description`, `parent` for tags and topics, and
+`pages`), `unlisted_types`, `unlisted_tags` and `unlisted_topics` (`name`,
+`pages`), `unsorted` (the pages with no topic), and the `taxonomy.*` lint
+`findings`. Lint stays the enforcement: an unknown tag is still a
 `taxonomy.unknown_tag` finding, never a write error.
 
 The passthrough is a thin reshape (design open decision 1, settled by #10462):

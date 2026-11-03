@@ -26,3 +26,10 @@ tags:
     description: Game design, game engines and game tooling.
   - name: research-method
     description: How to research - search methods, source assessment, provenance.
+
+topics:
+  - name: dev
+    description: Software development in general.
+  - name: agents
+    description: AI agents and how they are built.
+    parent: dev

@@ -106,6 +106,7 @@ Dates are `YYYY-MM-DD` or an ISO 8601 date-time (`2026-10-29T09:15:00Z`).
 | `type` | yes | A type listed in `taxonomy.yml` (seed: `concept`, `entity`, `comparison`, `synthesis`, `hub`) |
 | `title` | yes | Page title |
 | `aliases` | | Alternative names. Search resolves aliases, so a new name lands on the existing page instead of spawning a duplicate |
+| `topic` | | The one topic from `taxonomy.yml` the page sits in: the most specific that fits ([Topics](#topics)) |
 | `tags` | yes | Tags listed in `taxonomy.yml` only; add new tags there first. May be empty |
 | `sources` | | Retired; see below |
 | `trails` | | Slugs of the trails that changed this page |
@@ -214,6 +215,31 @@ tags:
 
 Names are slugs and appear once each. The type list is kept here rather than in
 the page schema so the content repo can grow it without a code change.
+
+#### Topics
+
+`topics` (optional) is a tree of subjects in the same entry shape as `tags`,
+with an optional `parent` topic. Topics sort pages for readers: the reader's
+subject tree is built from them, and each page names exactly one in its
+`topic` field, the most specific that fits. Tags cut across concerns, so a page
+has several; topics do not overlap, so it has one. Topics are frontmatter
+rather than folders under `wiki/` so that re-sorting a page changes one field
+instead of every link to it.
+
+```yaml
+topics:
+  - name: dev
+    description: Software development in general.
+  - name: gamedev
+    description: Game design, game engines and game tooling in general.
+    parent: dev
+```
+
+A page names a listed topic (`taxonomy.unknown_topic`). A topic's parent is
+another topic and parents do not loop (`taxonomy.topic_parent`). While the
+taxonomy lists any topics, a page without one is reported (`wiki.no_topic`,
+info): that is the librarian's sorting backlog, and the reader lists such pages
+under Unsorted.
 Agents read the current taxonomy, parsed and with the pages using each name,
 through the `wiki_taxonomy` operation ([facade](facade.md)).
 
@@ -420,12 +446,15 @@ exit code never reflects findings, because rules are findings, not write blocks.
 | `taxonomy.unknown_parent` | warning | A tag's parent is not a tag |
 | `taxonomy.unknown_tag` | warning | A page uses a tag not in the taxonomy |
 | `taxonomy.unknown_type` | warning | A page uses a type not in the taxonomy |
+| `taxonomy.unknown_topic` | warning | A page names a topic not in the taxonomy |
+| `taxonomy.topic_parent` | warning | A topic's parent is not a topic, or topic parents form a cycle |
 | `ref.missing_source` | warning | A page's retired `sources` field names a file that does not exist |
 | `ref.missing_trail` | warning | A `trails` or `captured_by_trail` entry has no trail file |
 | `ref.missing_page` | warning | A `contradicts` entry does not exist |
 | `wiki.relabelled` | warning | A page is labelled old instead of merged or deleted |
 | `wiki.name_collision` | warning | Two pages share a title or alias |
 | `wiki.sources_field` | info | A page carries the retired `sources` field; its citation footnotes are its sources |
+| `wiki.no_topic` | info | A page has no topic while the taxonomy lists topics |
 | `citation.missing_source` | warning | A citation links to a missing source |
 | `citation.missing_quote` | warning | A citation does not quote its span |
 | `citation.one_word_text` | warning | A citation footnote starts with one-word link text |

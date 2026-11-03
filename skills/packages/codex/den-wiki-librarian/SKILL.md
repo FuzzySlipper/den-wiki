@@ -75,10 +75,15 @@ remove it: the citation footnotes are the page's sources
 - **missing_hub:** create a `type: hub` page carrying the tag, linking every
   page in that area with a line on each.
 
-When a research trail proposes a new tag, check `wiki_taxonomy` first: it
-lists the tags that exist, their descriptions and the pages using each, and
-any tags pages already use without a taxonomy entry. Only Patch edits
-`taxonomy.yml`, so new tags go under "Proposed changes". Once Patch approves
+When a research trail proposes a new tag or topic, check `wiki_taxonomy`
+first: it lists the tags and topics that exist, their descriptions and the
+pages using each, any pages already use without a taxonomy entry, and the
+pages with no topic (`unsorted`). Only Patch edits `taxonomy.yml`, so new tags
+and topics go under "Proposed changes".
+
+Sort `unsorted` pages (`wiki.no_topic`): set `topic` with a `wiki_edit`
+frontmatter patch to the most specific listed topic that fits. Each page has
+one topic; readers browse the wiki by them. Once Patch approves
 one in conversation, apply it: `references/owner-approved-changes.md`.
 - **unfolded_proposal:** read the trail's "Proposed changes". Apply the ones
   that are right; decline the rest with a reason, or pass them to Patch

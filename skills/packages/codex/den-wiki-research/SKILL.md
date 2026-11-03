@@ -195,13 +195,16 @@ again. Relative links inside captured material show up as dead links in
   the next search lands on it.
 - **Path:** `wiki/<slug>.md`, a lowercase slug naming the subject. Never a
   date, version, author or status word (`-v2`, `-new`, `-final`, `-old`).
-- **Frontmatter:** `type`, `title`, `aliases`, `tags`, `trails`
+- **Frontmatter:** `type`, `title`, `aliases`, `topic`, `tags`, `trails`
   (your slug), `curation: unreviewed`, `confidence`, `volatility` (`hot`,
-  `warm`, `cold`) and `updated`. `type` and `tags` come only from the content repo's
-  taxonomy: `wiki_taxonomy` lists the allowed types and tags with their
-  descriptions and the pages already using each. `wiki_lint` reports anything
-  else as `taxonomy.unknown_tag` or `taxonomy.unknown_type`. When no tag fits,
-  leave `tags` empty rather than invent one, and propose the tag under
+  `warm`, `cold`) and `updated`. `type`, `topic` and `tags` come only from the
+  content repo's taxonomy: `wiki_taxonomy` lists the allowed types, tags and
+  topics with their descriptions and the pages already using each. `wiki_lint`
+  reports anything else as `taxonomy.unknown_tag`, `taxonomy.unknown_type` or
+  `taxonomy.unknown_topic`. `topic` is one topic, the most specific that fits:
+  it is where readers find the page in the wiki's subject tree, while tags cut
+  across topics. When no tag fits, leave `tags` empty rather than invent one;
+  when no topic fits, leave `topic` out. Propose the missing tag or topic under
   "Proposed changes". Never set `verified`; only a human does. No `sources`
   list: the citation footnotes are the page's sources. When you edit a page
   that still has one, remove it.

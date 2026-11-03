@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://den-wiki.local/schemas/taxonomy.schema.json",
   "title": "den-wiki taxonomy.yml",
-  "description": "The content repo's tag taxonomy and page types. A page may only use tags and types listed here; new tags are added here first.",
+  "description": "The content repo's page types, tag taxonomy and topic tree. A page may only use types, tags and a topic listed here; new ones are added here first.",
   "type": "object",
   "required": [
     "version",
@@ -26,6 +26,14 @@
     },
     "tags": {
       "description": "Allowed tags. A tag may name a parent tag to form a hierarchy.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    },
+    "topics": {
+      "description": "The topic tree: subjects that sort pages, one topic per page. A topic may name a parent topic. Unlike tags, which cut across concerns, a page sits in exactly one topic.",
       "type": "array",
       "uniqueItems": true,
       "items": {

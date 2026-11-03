@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-// TaxonomyEntry is one type or tag from taxonomy.yml, with the wiki pages
-// that use it.
+// TaxonomyEntry is one type, tag or topic from taxonomy.yml, with the wiki
+// pages that use it.
 type TaxonomyEntry struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
@@ -19,7 +19,8 @@ type TaxonomyEntry struct {
 	Pages       []string `json:"pages"`
 }
 
-// UnlistedName is a type or tag that pages use but taxonomy.yml does not list.
+// UnlistedName is a type, tag or topic that pages use but taxonomy.yml does
+// not list.
 type UnlistedName struct {
 	Name  string   `json:"name"`
 	Pages []string `json:"pages"`
@@ -33,16 +34,25 @@ type TaxonomyReport struct {
 	Version       int             `json:"version,omitempty"`
 	Types         []TaxonomyEntry `json:"types"`
 	Tags          []TaxonomyEntry `json:"tags"`
+	Topics        []TaxonomyEntry `json:"topics"`
 	UnlistedTypes []UnlistedName  `json:"unlisted_types"`
 	UnlistedTags  []UnlistedName  `json:"unlisted_tags"`
-	Findings      []Finding       `json:"findings"`
+	// UnlistedTopics are topics pages name that taxonomy.yml does not list.
+	UnlistedTopics []UnlistedName `json:"unlisted_topics"`
+	// Unsorted are the wiki pages with no topic.
+	Unsorted []string  `json:"unsorted"`
+	Findings []Finding `json:"findings"`
 }
 
 // ReadTaxonomy parses taxonomy.yml under root and counts its use across the
 // wiki pages. A missing or invalid taxonomy is not an error: Present is false
 // or Findings says what is wrong, as lint would.
 func ReadTaxonomy(root string) (TaxonomyReport, error) {
-	r := TaxonomyReport{Types: []TaxonomyEntry{}, Tags: []TaxonomyEntry{}, UnlistedTypes: []UnlistedName{}, UnlistedTags: []UnlistedName{}, Findings: []Finding{}}
+	r := TaxonomyReport{
+		Types: []TaxonomyEntry{}, Tags: []TaxonomyEntry{}, Topics: []TaxonomyEntry{},
+		UnlistedTypes: []UnlistedName{}, UnlistedTags: []UnlistedName{}, UnlistedTopics: []UnlistedName{},
+		Unsorted: []string{}, Findings: []Finding{},
+	}
 	all, err := Lint(root, Options{})
 	if err != nil {
 		return r, err
@@ -73,8 +83,13 @@ func ReadTaxonomy(root string) (TaxonomyReport, error) {
 	if err != nil {
 		return r, err
 	}
-	typeUse, tagUse := map[string][]string{}, map[string][]string{}
+	typeUse, tagUse, topicUse := map[string][]string{}, map[string][]string{}, map[string][]string{}
 	for _, p := range pages {
+		if t, ok := stringField(p.fields, "topic"); ok {
+			topicUse[t] = append(topicUse[t], p.rel)
+		} else {
+			r.Unsorted = append(r.Unsorted, p.rel)
+		}
 		if t, ok := stringField(p.fields, "type"); ok {
 			typeUse[t] = append(typeUse[t], p.rel)
 		}
@@ -86,6 +101,9 @@ func ReadTaxonomy(root string) (TaxonomyReport, error) {
 	r.Tags = taxonomyEntries(fields, "tags", tagUse)
 	r.UnlistedTypes = unlisted(r.Types, typeUse)
 	r.UnlistedTags = unlisted(r.Tags, tagUse)
+	r.Topics = taxonomyEntries(fields, "topics", topicUse)
+	r.UnlistedTopics = unlisted(r.Topics, topicUse)
+	sort.Strings(r.Unsorted)
 	return r, nil
 }
 

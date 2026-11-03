@@ -20,6 +20,10 @@
       "items": { "type": "string", "pattern": "\\S" },
       "uniqueItems": true
     },
+    "topic": {
+      "description": "The one topic from taxonomy.yml's topics that this page sits in: the most specific that fits. Topics sort pages for readers; tags cut across them.",
+      "$ref": "#/$defs/slug"
+    },
     "tags": {
       "description": "Tags from taxonomy.yml only.",
       "type": "array",

@@ -1,5 +1,5 @@
-# den-wiki tag taxonomy. Pages use only the types and tags listed here; add a
-# tag here before using it. Format: den-wiki schemas/taxonomy.schema.json.
+# den-wiki taxonomy. Pages use only the types, tags and topics listed here;
+# add one here before using it. Format: den-wiki schemas/taxonomy.schema.json.
 version: 1
 
 types:
@@ -26,3 +26,27 @@ tags:
     description: Game design, game engines and game tooling.
   - name: research-method
     description: How to research - search methods, source assessment, provenance.
+
+# Topics sort pages for readers: each page names exactly one, the most
+# specific that fits. Tags cut across topics.
+topics:
+  - name: home
+    description: The house and household - appliances, repairs, garden, local services.
+  - name: dev
+    description: Software development in general - languages, libraries, tools and practice.
+  - name: gamedev
+    description: Game design, game engines and game tooling in general.
+    parent: dev
+  - name: infrastructure
+    description: Servers, networking, self-hosting and backups in general.
+    parent: dev
+  - name: projects
+    description: Our own projects - Den, den-wiki, the games being built, the homelab as set up.
+  - name: world
+    description: News and current affairs.
+  - name: geopolitics
+    description: Wars, states and international relations.
+    parent: world
+  - name: economics
+    description: Economics, markets and finance.
+    parent: world

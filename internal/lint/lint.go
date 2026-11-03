@@ -284,6 +284,13 @@ func (l *linter) checkPage(rel string, doc document) {
 				l.add(newFinding(codeUnknownTag, rel, "tag "+quote(tag)+" is not in taxonomy.yml; add it there first"))
 			}
 		}
+		topic, hasTopic := stringField(f, "topic")
+		switch {
+		case hasTopic && !l.taxonomy.topics[topic]:
+			l.add(newFinding(codeUnknownTopic, rel, "topic "+quote(topic)+" is not in taxonomy.yml; use a listed topic or propose a new one"))
+		case !hasTopic && len(l.taxonomy.topics) > 0:
+			l.add(newFinding(codeWikiNoTopic, rel, "the page has no topic; set the most specific topic from taxonomy.yml that fits"))
+		}
 	}
 	if _, ok := f["sources"]; ok {
 		l.add(newFinding(codeWikiSourcesField, rel, "the sources field is retired: a page's citation footnotes are its sources, and OpenKnowledge shows frontmatter above the page; remove it"))

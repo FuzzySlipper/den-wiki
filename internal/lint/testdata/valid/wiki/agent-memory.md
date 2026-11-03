@@ -2,6 +2,7 @@
 type: concept
 title: Agent memory
 aliases: [LLM agent memory, long-term memory for agents]
+topic: agents
 tags: [ai, research-method]
 trails: [agent-memory-research-2026-10-28]
 curation: unreviewed

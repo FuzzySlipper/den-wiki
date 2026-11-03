@@ -70,3 +70,45 @@ func TestReadTaxonomyMissing(t *testing.T) {
 		t.Errorf("unlisted %+v", r.UnlistedTags)
 	}
 }
+
+func TestReadTaxonomyTopics(t *testing.T) {
+	root := t.TempDir()
+	writeContent(t, root, map[string]string{
+		"taxonomy.yml": `version: 1
+types:
+  - {name: concept, description: An idea.}
+tags:
+  - {name: software, description: Software.}
+topics:
+  - {name: dev, description: Development.}
+  - {name: gamedev, description: Games., parent: dev}
+`,
+		"wiki/alpha.md": curPage("Alpha", "topic: gamedev\n", "a"),
+		"wiki/beta.md":  curPage("Beta", "topic: cooking\n", "b"),
+		"wiki/gamma.md": curPage("Gamma", "", "c"),
+	})
+	r, err := ReadTaxonomy(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []TaxonomyEntry{
+		{Name: "dev", Description: "Development.", Pages: []string{}},
+		{Name: "gamedev", Description: "Games.", Parent: "dev", Pages: []string{"wiki/alpha.md"}},
+	}
+	if !reflect.DeepEqual(r.Topics, want) {
+		t.Errorf("topics %+v", r.Topics)
+	}
+	if !reflect.DeepEqual(r.UnlistedTopics, []UnlistedName{{Name: "cooking", Pages: []string{"wiki/beta.md"}}}) {
+		t.Errorf("unlisted topics %+v", r.UnlistedTopics)
+	}
+	if !reflect.DeepEqual(r.Unsorted, []string{"wiki/gamma.md"}) {
+		t.Errorf("unsorted %+v", r.Unsorted)
+	}
+	codes := map[string]bool{}
+	for _, f := range r.Findings {
+		codes[f.Code] = true
+	}
+	if !codes["taxonomy.unknown_topic"] {
+		t.Errorf("findings %+v", r.Findings)
+	}
+}

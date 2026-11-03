@@ -165,11 +165,17 @@ func TestEachRuleFails(t *testing.T) {
 		{"taxonomy schema", func(t *testing.T, r string) { replace(t, r, "taxonomy.yml", "version: 1", "version: 2") }, "taxonomy.invalid", "taxonomy.yml"},
 		{"taxonomy not YAML", func(t *testing.T, r string) { write(t, r, "taxonomy.yml", "tags: [\n") }, "taxonomy.invalid", "taxonomy.yml"},
 		{"taxonomy duplicate", func(t *testing.T, r string) {
-			write(t, r, "taxonomy.yml", read(t, r, "taxonomy.yml")+"  - name: games\n    description: again\n")
+			replace(t, r, "taxonomy.yml", "\ntopics:", "  - name: games\n    description: again\n\ntopics:")
 		}, "taxonomy.duplicate", "taxonomy.yml"},
 		{"taxonomy parent", func(t *testing.T, r string) { replace(t, r, "taxonomy.yml", "parent: software", "parent: nowhere") }, "taxonomy.unknown_parent", "taxonomy.yml"},
 		{"unknown tag", func(t *testing.T, r string) { replace(t, r, page, "tags: [ai, research-method]", "tags: [ai, gossip]") }, "taxonomy.unknown_tag", page},
 		{"unknown type", func(t *testing.T, r string) { replace(t, r, page, "type: concept", "type: essay") }, "taxonomy.unknown_type", page},
+		{"unknown topic", func(t *testing.T, r string) { replace(t, r, page, "topic: agents", "topic: gossip") }, "taxonomy.unknown_topic", page},
+		{"topic parent", func(t *testing.T, r string) { replace(t, r, "taxonomy.yml", "parent: dev", "parent: nowhere") }, "taxonomy.topic_parent", "taxonomy.yml"},
+		{"topic cycle", func(t *testing.T, r string) {
+			replace(t, r, "taxonomy.yml", "description: Software development in general.", "description: Software development in general.\n    parent: agents")
+		}, "taxonomy.topic_parent", "taxonomy.yml"},
+		{"no topic", func(t *testing.T, r string) { replace(t, r, page, "topic: agents\n", "") }, "wiki.no_topic", page},
 		{"missing source", func(t *testing.T, r string) {
 			replace(t, r, page, "trails: [", "sources: [sources/no-such-capture.md]\ntrails: [")
 		}, "ref.missing_source", page},
