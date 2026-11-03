@@ -6,7 +6,6 @@
 package export
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -16,8 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gopkg.in/yaml.v3"
-
+	"github.com/FuzzySlipper/den-wiki/internal/content"
 	"github.com/FuzzySlipper/den-wiki/internal/media"
 )
 
@@ -73,12 +71,12 @@ func Export(contentDir, rel, assetBase string) (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	fields, body, err := splitFrontmatter(src)
+	fields, body, err := content.Split(src)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", rel, err)
 	}
 	e := &exporter{root: root, rel: rel, base: assetBase, byPath: map[string]string{}, names: map[string]bool{}}
-	p := &Page{Path: rel, Title: fields["title"], Updated: fields["updated"]}
+	p := &Page{Path: rel, Title: fields.Str("title"), Updated: fields.Str("updated")}
 	if p.Title == "" {
 		p.Title = strings.TrimSuffix(path.Base(rel), ".md")
 	}
@@ -118,50 +116,13 @@ func ReadAsset(contentDir, rel, name string) (Asset, []byte, error) {
 }
 
 func checkPage(rel string) error {
-	if rel == "" || path.Clean(rel) != rel || path.IsAbs(rel) || strings.HasPrefix(rel, "../") {
+	if !content.Clean(rel) {
 		return fmt.Errorf("%w: %q is not a clean content-relative path", ErrInvalid, rel)
 	}
 	if !strings.HasPrefix(rel, "wiki/") || !strings.HasSuffix(rel, ".md") {
 		return fmt.Errorf("%w: only wiki/ pages can be exported, not %s", ErrInvalid, rel)
 	}
 	return nil
-}
-
-// splitFrontmatter returns the frontmatter's scalar fields as written, and
-// the body.
-func splitFrontmatter(src []byte) (map[string]string, []byte, error) {
-	fields := map[string]string{}
-	rest, ok := bytes.CutPrefix(src, []byte("---\n"))
-	if !ok {
-		return fields, src, nil
-	}
-	end := 0
-	for {
-		i := bytes.IndexByte(rest[end:], '\n')
-		line := rest[end:]
-		if i >= 0 {
-			line = rest[end : end+i]
-		}
-		if l := string(bytes.TrimSuffix(line, []byte("\r"))); l == "---" || l == "..." {
-			var nodes map[string]yaml.Node
-			if err := yaml.Unmarshal(rest[:end], &nodes); err != nil {
-				return nil, nil, fmt.Errorf("frontmatter: %w", err)
-			}
-			for k, n := range nodes {
-				if n.Kind == yaml.ScalarNode {
-					fields[k] = n.Value
-				}
-			}
-			if i < 0 {
-				return fields, nil, nil
-			}
-			return fields, rest[end+i+1:], nil
-		}
-		if i < 0 {
-			return nil, nil, errors.New("frontmatter block is not closed")
-		}
-		end += i + 1
-	}
 }
 
 type exporter struct {
@@ -193,7 +154,6 @@ var (
 	attrRe    = regexp.MustCompile(`\b(src|title)="([^"]*)"`)
 	imgEl     = regexp.MustCompile(`<img\b[^>]*>`)
 	imgSrc    = regexp.MustCompile(`\bsrc="([^"]*)"`)
-	jsxNum    = regexp.MustCompile(`\b(width|height)=\{(\d+)\}`)
 	// A Markdown link or image: [text](target "title"). Text may hold one
 	// level of brackets, as in a footnote's [link](..) inside quotes.
 	mdLinkRe = regexp.MustCompile(`(!?)\[((?:[^\[\]]|\[[^\[\]]*\])*)\]\(([^)\s]+)((?:\s+"[^"]*")?)\)`)
@@ -324,7 +284,7 @@ func (e *exporter) video(el string) string {
 }
 
 func (e *exporter) img(el string) string {
-	el = jsxNum.ReplaceAllString(el, `$1="$2"`)
+	el = content.FixJSXAttrs(el)
 	m := imgSrc.FindStringSubmatchIndex(el)
 	if m == nil {
 		return el
@@ -340,7 +300,7 @@ func (e *exporter) img(el string) string {
 func (e *exporter) link(l string) string {
 	m := mdLinkRe.FindStringSubmatch(l)
 	image, text, target, title := m[1] == "!", m[2], m[3], m[4]
-	if isExternal(target) {
+	if content.IsExternal(target) {
 		return l
 	}
 	if image {
@@ -350,7 +310,7 @@ func (e *exporter) link(l string) string {
 		}
 		return "![" + text + "](" + url + title + ")"
 	}
-	resolved, ok := resolve(e.rel, target)
+	resolved, ok := content.Resolve(e.rel, target)
 	if !ok {
 		return text
 	}
@@ -371,22 +331,18 @@ func (e *exporter) link(l string) string {
 	return text
 }
 
-func isExternal(target string) bool {
-	return strings.Contains(target, "://") || strings.HasPrefix(target, "#") || strings.HasPrefix(target, "mailto:")
-}
-
 // file makes a content file the page uses into an asset and returns its
 // published URL. It reports false, with a warning, when the file cannot go
 // with the page.
 func (e *exporter) file(target string, image bool) (string, bool) {
-	if isExternal(target) {
+	if content.IsExternal(target) {
 		return target, true
 	}
 	if media.RefRe.MatchString(target) {
 		e.warn("%s is in the media store, which is LAN-only, so it is left out", target)
 		return "", false
 	}
-	resolved, ok := resolve(e.rel, target)
+	resolved, ok := content.Resolve(e.rel, target)
 	if !ok {
 		e.warn("%s is outside the content repository, so it is left out", target)
 		return "", false
@@ -423,39 +379,6 @@ func (e *exporter) uniqueName(name string) string {
 var urlEscaper = strings.NewReplacer("(", "%28", ")", "%29", " ", "%20")
 
 func (e *exporter) sourceURL(rel string) string {
-	src, err := e.root.ReadFile(rel)
-	if err != nil {
-		return ""
-	}
-	fields, _, err := splitFrontmatter(src)
-	if err != nil {
-		return ""
-	}
-	u := fields["source_url"]
-	if !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
-		return ""
-	}
 	// Wikipedia-style "Loom_(video_game)" would end the Markdown link early.
-	return urlEscaper.Replace(u)
-}
-
-// resolve turns a link target into a content-root-relative path, dropping
-// any query or fragment. Targets outside the content root report false.
-func resolve(fromRel, target string) (string, bool) {
-	if i := strings.IndexAny(target, "#?"); i >= 0 {
-		target = target[:i]
-	}
-	if target == "" {
-		return "", false
-	}
-	var p string
-	if strings.HasPrefix(target, "/") {
-		p = path.Clean(strings.TrimPrefix(target, "/"))
-	} else {
-		p = path.Clean(path.Join(path.Dir(fromRel), target))
-	}
-	if p == ".." || strings.HasPrefix(p, "../") || p == "." {
-		return "", false
-	}
-	return p, true
+	return urlEscaper.Replace(content.SourceURL(e.root, rel))
 }

@@ -4,8 +4,10 @@ go 1.26
 
 require (
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
+	github.com/yuin/goldmark v1.7.8
 	golang.org/x/text v0.14.0
 	gopkg.in/yaml.v3 v3.0.1
+	modernc.org/sqlite v1.52.0
 )
 
 require (
@@ -18,5 +20,4 @@ require (
 	modernc.org/libc v1.72.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.52.0 // indirect
 )
