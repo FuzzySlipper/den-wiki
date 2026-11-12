@@ -100,8 +100,11 @@ func TestSystemdUnitReadsStateAndRestarts(t *testing.T) {
 	if err := u.Restart(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	if err := (SystemdUnit{Name: "ok-test.service", Systemctl: fake, User: true}).Restart(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 	b, _ := os.ReadFile(calls)
-	want := "show --timestamp=unix --property=ActiveState,ActiveEnterTimestamp ok-wiki.service\nrestart ok-wiki.service\n"
+	want := "show --timestamp=unix --property=ActiveState,ActiveEnterTimestamp ok-wiki.service\nrestart ok-wiki.service\n--user restart ok-test.service\n"
 	if string(b) != want {
 		t.Errorf("calls %q, want %q", b, want)
 	}

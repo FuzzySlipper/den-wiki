@@ -44,7 +44,15 @@ journalctl -u ok-wiki-watchdog --since today                   # everything
 ```
 
 `den-wiki ok-watchdog --help` lists its flags (endpoint, unit, interval,
-timeout, failures, grace).
+timeout, failures, grace, and `--user` for a unit in the user's service
+manager).
+
+Checked on 2026-11-11 on den-agents with the pinned OK as a user unit and the
+watchdog at its production defaults: `SIGSTOP` to every OK process at
+18:02:34; failed pings at 18:02:50, 18:03:50 and 18:04:50; "restarting
+OpenKnowledge after 3 failed pings" at 18:04:50; OK answering again 139 s
+after the stop, and the watchdog's next ping after the grace period
+succeeded.
 
 ## Paths
 

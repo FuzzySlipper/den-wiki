@@ -25,6 +25,7 @@ func runWatchdog(args []string, stderr io.Writer) int {
 	timeout := fs.Duration("timeout", 15*time.Second, "how long one ping may take")
 	failures := fs.Int("failures", 3, "failed pings in a row that restart the unit")
 	grace := fs.Duration("grace", 2*time.Minute, "no pings until the unit has been active this long")
+	user := fs.Bool("user", false, "the unit is in the user's service manager (systemctl --user), for trying the watchdog outside the container")
 	fs.Usage = func() {
 		fmt.Fprint(stderr, "Usage: den-wiki ok-watchdog [flags]\n\nPings OpenKnowledge's MCP endpoint every interval and restarts its systemd\nunit after a run of failed pings, for an OK that hangs with its unit still\nactive. Every failure and restart is logged. Runs until stopped; needs the\nright to restart the unit.\n\nFlags:\n")
 		fs.PrintDefaults()
@@ -46,7 +47,7 @@ func runWatchdog(args []string, stderr io.Writer) int {
 			defer cancel()
 			return ok.Ping(ctx)
 		},
-		Unit:     okwatch.SystemdUnit{Name: *unit},
+		Unit:     okwatch.SystemdUnit{Name: *unit, User: *user},
 		Failures: *failures,
 		Grace:    *grace,
 		Now:      time.Now,

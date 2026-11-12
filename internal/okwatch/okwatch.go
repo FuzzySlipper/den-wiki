@@ -92,12 +92,18 @@ func (w *Watchdog) Run(ctx context.Context, interval time.Duration) {
 type SystemdUnit struct {
 	Name      string
 	Systemctl string // the systemctl binary; default "systemctl"
+	// User drives the user's service manager (systemctl --user), for trying
+	// the watchdog outside a container.
+	User bool
 }
 
 func (u SystemdUnit) systemctl(ctx context.Context, args ...string) ([]byte, error) {
 	bin := u.Systemctl
 	if bin == "" {
 		bin = "systemctl"
+	}
+	if u.User {
+		args = append([]string{"--user"}, args...)
 	}
 	out, err := exec.CommandContext(ctx, bin, args...).CombinedOutput()
 	if err != nil {
