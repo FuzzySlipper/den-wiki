@@ -35,7 +35,7 @@ agent identity are rejected before any backend is called.
 | Operation | Risk | Discovery | Backend |
 |---|---|---|---|
 | `wiki_search` | read | default | OK `search` |
-| `wiki_read` | read | default | OK `exec cat` briefing, file from the content dir |
+| `wiki_read` | read | default | OK `exec cat` briefing, file from the content dir; `content_only` returns path and content from the content dir alone, without calling OK |
 | `wiki_write` | write | default | OK `write`, then a den-wiki commit |
 | `wiki_edit` | write | default | OK `edit`, then a den-wiki commit |
 | `wiki_attach` | write | default | OK `write` (asset) and a den-wiki commit, or the media store; see [Media](#media) |

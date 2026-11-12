@@ -292,7 +292,8 @@ func (w *wiki) linkViews(ctx context.Context, agent string, args map[string]any)
 }
 
 type wikiReadArgs struct {
-	Path string `json:"path" required:"true" desc:"Content-root-relative page, source or trail, e.g. wiki/agent-memory.md."`
+	Path        string `json:"path" required:"true" desc:"Content-root-relative page, source or trail, e.g. wiki/agent-memory.md."`
+	ContentOnly bool   `json:"content_only,omitempty" desc:"Return only path and content (the Markdown, frontmatter included), without links, history or zone rules: the cheap read when a page is context. Works while OpenKnowledge is down."`
 }
 
 type wikiListArgs struct {
@@ -407,8 +408,11 @@ func wikiOps(d Deps) []*registry.Operation {
 	return append(mediaOps(w), []*registry.Operation{
 		registry.New(registry.Operation{
 			Name: "wiki_read", Risk: registry.RiskRead, Tier: registry.TierDefault, Backend: backend,
-			Description: "Read a page, source or trail: its content, frontmatter, backlinks, outgoing links, edit history, git history (with trail-tagged subjects) and its zone's rules.",
-			Examples:    []registry.Example{{Description: "Read a page with its links", Arguments: map[string]any{"path": "wiki/agent-memory.md"}}},
+			Description: "Read a page, source or trail: its content, frontmatter, backlinks, outgoing links, edit history, git history (with trail-tagged subjects) and its zone's rules. content_only returns just the Markdown, for reading pages as context.",
+			Examples: []registry.Example{
+				{Description: "Read a page with its links", Arguments: map[string]any{"path": "wiki/agent-memory.md"}},
+				{Description: "Read just its Markdown", Arguments: map[string]any{"path": "wiki/agent-memory.md", "content_only": true}},
+			},
 		}, func(ctx context.Context, c *registry.Call, a wikiReadArgs) (any, error) {
 			if err := w.ready(); err != nil {
 				return nil, err
@@ -420,6 +424,10 @@ func wikiOps(d Deps) []*registry.Operation {
 			content, found := w.git.read(rel)
 			if !found {
 				return nil, &registry.Error{Code: registry.CodeNotFound, Message: rel + " does not exist; wiki_search finds pages"}
+			}
+			if a.ContentOnly {
+				c.NoteRead(rel, nil, []string{rel})
+				return map[string]any{"path": rel, "content": string(content)}, nil
 			}
 			res, err := w.call(ctx, c.Agent, "exec", map[string]any{"command": "cat " + rel})
 			if err != nil {

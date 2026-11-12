@@ -148,6 +148,10 @@ func TestEveryOperationThroughTheCLI(t *testing.T) {
 		t.Fatalf("search: %v", r)
 	}
 	run(ExitOK, "wiki_read", "--path", "wiki/agent-memory.md")
+	if r := run(ExitOK, "wiki_read", "--path", "wiki/agent-memory.md", "--content-only"); len(r) != 2 || r["content"] == "" {
+		t.Fatalf("content-only read: %v", r)
+	}
+	run(ExitOK, "cat", "wiki/agent-memory.md")
 	run(ExitOK, "wiki_list", "--folder", "wiki")
 	run(ExitOK, "wiki_links", "--kinds", "dead,orphans,hubs")
 	run(ExitOK, "wiki_history", "--path", "wiki/agent-memory.md", "--limit", "5")

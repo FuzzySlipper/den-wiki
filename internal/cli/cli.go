@@ -167,6 +167,11 @@ func Run(args []string, env Env) int {
 	case "catalog":
 		_, _ = env.Stdout.Write(cat.Marshal())
 		return ExitOK
+	case "cat":
+		if len(rest) != 1 {
+			return usageErr(env, g.human, registry.CodeInvalidArguments, "usage: den-wiki cat <path>")
+		}
+		return catPage(env, *cat, g, rest[0])
 	case "health":
 		if len(rest) != 0 {
 			return usageErr(env, g.human, registry.CodeInvalidArguments, "usage: den-wiki health")
@@ -354,6 +359,34 @@ func callOp(env Env, e Entry, g globals, rest []string) int {
 	} else {
 		writeRaw(env.Stdout, out)
 	}
+	return ExitOK
+}
+
+// catPage prints a page's Markdown as it is stored: wiki_read with
+// content_only, without the JSON around it.
+func catPage(env Env, cat Catalog, g globals, path string) int {
+	_, endpoint, agent, err := settings(g)
+	if err != nil {
+		return usageErr(env, g.human, registry.CodeInvalidArguments, "config: "+err.Error())
+	}
+	if _, ok := cat.Find("wiki_read"); !ok {
+		return unknownOp(env, g.human, cat, "wiki_read")
+	}
+	tr := env.Transport
+	if tr == nil {
+		tr = &HTTPTransport{Endpoint: endpoint, Timeout: 60 * time.Second}
+	}
+	out, err := tr.Call(context.Background(), agent, "wiki_read", map[string]any{"path": path, "content_only": true})
+	if err != nil {
+		return fail(env, g.human, registry.ErrorOf(err))
+	}
+	var page struct {
+		Content *string `json:"content"`
+	}
+	if err := json.Unmarshal(out, &page); err != nil || page.Content == nil {
+		return fail(env, g.human, &registry.Error{Code: registry.CodeBackendError, Message: "wiki_read returned no content"})
+	}
+	fmt.Fprint(env.Stdout, *page.Content)
 	return ExitOK
 }
 

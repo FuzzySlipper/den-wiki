@@ -42,10 +42,13 @@ Before searching anywhere else:
 - `wiki_search` the question's key terms, synonyms and likely page names.
   Results under `wiki/` are current understanding; results under `trails/` are
   earlier runs, with their queries, sources and dead ends.
-- `wiki_read` the promising pages. A page's read result lists its backlinks,
-  outgoing links and its own git history (`project_history`); each commit
-  subject names the trail that made the change (`(trail:<slug>)`). Read those trails before repeating their
-  queries, and skip the sources they rejected.
+- Read the promising pages with `wiki_read` and `content_only: true`: just the
+  Markdown, without the links and history that can be larger than the page.
+  Use it too for long trails and exemplar pages you read as context. When you
+  need a page's provenance, a full `wiki_read` lists its backlinks, outgoing
+  links and its own git history (`project_history`); each commit subject names
+  the trail that made the change (`(trail:<slug>)`). Read those trails before
+  repeating their queries, and skip the sources they rejected.
 - `job_list` with `statuses: ["open", "claimed"]` to see whether someone has
   the question queued or in progress.
 

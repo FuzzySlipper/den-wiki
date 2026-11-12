@@ -18,6 +18,7 @@ Usage:
   den-wiki search <terms>                    find operations
   den-wiki describe <operation>              full detail, including the input schema
   den-wiki catalog                           every operation as JSON
+  den-wiki cat <path>                        print a page's Markdown (wiki_read content_only)
   den-wiki health                            den-wiki and backend health (exit 6 if unhealthy)
   den-wiki lint [flags] <content-dir>        check content locally (den-wiki lint --help)
   den-wiki serve --config <file>             run the den-wiki service

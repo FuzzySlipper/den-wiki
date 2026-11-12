@@ -150,3 +150,28 @@ func TestListAndLinksLogThePagesTheyReturn(t *testing.T) {
 		t.Errorf("links row: %q", got["wiki_links"])
 	}
 }
+
+func TestContentOnlyReadSkipsOpenKnowledge(t *testing.T) {
+	dir := t.TempDir()
+	page := "---\ntitle: Agent memory\n---\n\nMemory helps.\n"
+	put(t, dir, "wiki/agent-memory.md", page)
+	wiki := &countingWiki{}
+	h := newHarnessWith(t, wiki, dir)
+	sc, isErr := h.call(t, "reader", "wiki_read", map[string]any{"path": "wiki/agent-memory.md", "content_only": true})
+	if isErr {
+		t.Fatalf("read: %v", sc)
+	}
+	if len(sc) != 2 || sc["path"] != "wiki/agent-memory.md" || sc["content"] != page {
+		t.Errorf("content-only read returned %v", sc)
+	}
+	if wiki.count() != 0 {
+		t.Errorf("content-only read called OpenKnowledge %d times", wiki.count())
+	}
+	entries, err := h.reads.Recent(context.Background(), 10)
+	if err != nil || len(entries) != 1 || entries[0].Tool != "wiki_read" || len(entries[0].Opened) != 1 {
+		t.Errorf("read log %+v %v", entries, err)
+	}
+	if sc, isErr := h.call(t, "reader", "wiki_read", map[string]any{"path": "wiki/missing.md", "content_only": true}); !isErr || errorCode(sc) != "not_found" {
+		t.Errorf("missing page: %v", sc)
+	}
+}

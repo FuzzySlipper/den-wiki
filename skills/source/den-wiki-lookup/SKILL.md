@@ -12,8 +12,9 @@ server and a command of the `den-wiki` CLI (`den-wiki <op> --args-json
 1. `wiki_search` the topic's terms and synonyms (`titles_only: true` for a
    fast pass). Hits under `wiki/` are current understanding; hits under
    `trails/` are earlier research runs.
-2. `wiki_read` the best hits. The result carries the page, its frontmatter,
-   backlinks, outgoing links and git history. Each commit subject names the
+2. `wiki_read` the best hits with `content_only: true` for just the Markdown.
+   A full `wiki_read` also carries the page's backlinks, outgoing links and git
+   history, which can be larger than the page: use it when you need them. Each commit subject names the
    trail behind the change as `(trail:<slug>)`; read the trail for how a claim
    was reached and which sources were rejected.
 3. Follow links with `wiki_links` and history with `wiki_history` when the

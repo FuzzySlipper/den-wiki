@@ -306,3 +306,22 @@ func TestBase64FieldsReadFiles(t *testing.T) {
 		t.Fatalf("missing file: exit %d, %d calls", code, len(tr.calls))
 	}
 }
+
+func TestCatPrintsTheMarkdown(t *testing.T) {
+	tr := &fakeTransport{reply: json.RawMessage(`{"path":"wiki/a.md","content":"---\ntitle: A\n---\n\nBody.\n"}`)}
+	code, out, errOut := runCLI(t, tr, "cat", "wiki/a.md")
+	if code != ExitOK || out != "---\ntitle: A\n---\n\nBody.\n" {
+		t.Fatalf("exit %d out %q err %s", code, out, errOut)
+	}
+	got, _ := json.Marshal(tr.calls[0].args)
+	if tr.calls[0].op != "wiki_read" || string(got) != `{"content_only":true,"path":"wiki/a.md"}` {
+		t.Errorf("call %s %s", tr.calls[0].op, got)
+	}
+	if code, _, _ := runCLI(t, &fakeTransport{}, "cat"); code != ExitUsage {
+		t.Errorf("no path: exit %d", code)
+	}
+	tr = &fakeTransport{err: &registry.Error{Code: registry.CodeNotFound, Message: "gone"}}
+	if code, _, _ := runCLI(t, tr, "cat", "wiki/gone.md"); code != ExitNotFound {
+		t.Errorf("missing page: exit %d", code)
+	}
+}

@@ -1,5 +1,5 @@
 {
-  "revision": "catalog-f2f1e3edc571",
+  "revision": "catalog-4f9b00aefce9",
   "operations": [
     {
       "name": "job_abandon",
@@ -813,7 +813,7 @@
     },
     {
       "name": "wiki_read",
-      "description": "Read a page, source or trail: its content, frontmatter, backlinks, outgoing links, edit history, git history (with trail-tagged subjects) and its zone's rules.",
+      "description": "Read a page, source or trail: its content, frontmatter, backlinks, outgoing links, edit history, git history (with trail-tagged subjects) and its zone's rules. content_only returns just the Markdown, for reading pages as context.",
       "risk": "read",
       "tier": "default",
       "backend": "openknowledge",
@@ -821,6 +821,10 @@
       "input_schema": {
         "additionalProperties": false,
         "properties": {
+          "content_only": {
+            "description": "Return only path and content (the Markdown, frontmatter included), without links, history or zone rules: the cheap read when a page is context. Works while OpenKnowledge is down.",
+            "type": "boolean"
+          },
           "path": {
             "description": "Content-root-relative page, source or trail, e.g. wiki/agent-memory.md.",
             "type": "string"
@@ -835,6 +839,13 @@
         {
           "description": "Read a page with its links",
           "arguments": {
+            "path": "wiki/agent-memory.md"
+          }
+        },
+        {
+          "description": "Read just its Markdown",
+          "arguments": {
+            "content_only": true,
             "path": "wiki/agent-memory.md"
           }
         }
