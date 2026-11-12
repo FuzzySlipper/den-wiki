@@ -1,5 +1,5 @@
 {
-  "revision": "catalog-c9f93f7de1cd",
+  "revision": "catalog-627d65ad455c",
   "operations": [
     {
       "name": "job_abandon",
@@ -607,7 +607,7 @@
             "type": "boolean"
           },
           "context": {
-            "description": "Lines before and after each match; default 2.",
+            "description": "Lines before and after each match; default 2, 0 for the matching lines alone.",
             "maximum": 20,
             "minimum": 0,
             "type": "integer"

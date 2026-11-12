@@ -197,6 +197,20 @@ func TestGrepAndSectionReadSkipOpenKnowledge(t *testing.T) {
 	if p["path"] != "wiki/combat.md" || p["heading"] != "Stamina" || len(p["lines"].([]any)) != 3 {
 		t.Errorf("passage %v", p)
 	}
+	// context 0 returns the matching line alone; omitted, it is 2.
+	for _, c := range []struct {
+		args  map[string]any
+		lines int
+	}{
+		{map[string]any{"pattern": "drains", "path": "wiki/combat.md", "context": 0}, 1},
+		{map[string]any{"pattern": "drains", "path": "wiki/combat.md"}, 5},
+	} {
+		sc, isErr := h.call(t, "reader", "wiki_grep", c.args)
+		ps, _ := sc["passages"].([]any)
+		if isErr || len(ps) != 1 || len(ps[0].(map[string]any)["lines"].([]any)) != c.lines {
+			t.Errorf("%v: want %d lines: %v", c.args, c.lines, sc)
+		}
+	}
 	for args, code := range map[string]string{
 		`{"pattern":"x","path":"wiki/a.md","zone":"wiki"}`: "invalid_arguments",
 		`{"pattern":"(","regex":true}`:                     "invalid_arguments",

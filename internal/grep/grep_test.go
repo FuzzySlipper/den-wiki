@@ -198,3 +198,31 @@ func TestSection(t *testing.T) {
 		t.Errorf("fenced heading found, or headings %v", all)
 	}
 }
+
+// Nearby matches under sibling headings are separate passages, each under
+// its own heading, so the section read that follows holds the hit.
+func TestPassagesSplitAtHeadings(t *testing.T) {
+	dir := t.TempDir()
+	src := "## Alpha\nneedle one\n## Beta\nneedle two\n"
+	if err := os.MkdirAll(filepath.Join(dir, "wiki"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "wiki/a.md"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r, err := Search(dir, Scope{Path: "wiki/a.md"}, Options{Pattern: "needle", Context: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Passages) != 2 || r.Passages[0].Heading != "Alpha" || r.Passages[1].Heading != "Beta" ||
+		r.Passages[0].Hits[0] != 2 || r.Passages[1].Hits[0] != 4 || len(r.Passages[0].Hits) != 1 {
+		t.Fatalf("passages %+v", r.Passages)
+	}
+	for _, p := range r.Passages {
+		text, _, ok, _ := Section(src, p.Heading)
+		hit := strings.Split(strings.TrimSuffix(src, "\n"), "\n")[p.Hits[0]-1]
+		if !ok || !strings.Contains(text, hit) {
+			t.Errorf("section %q does not hold its hit %q:\n%s", p.Heading, hit, text)
+		}
+	}
+}

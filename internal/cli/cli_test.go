@@ -346,6 +346,11 @@ func TestGrepPrintsPassages(t *testing.T) {
 	if tr.calls[0].op != "wiki_grep" || string(got) != `{"context":1,"pattern":"stamina|fatigue","regex":true,"topic":"rusty-dagger"}` {
 		t.Errorf("call %s %s", tr.calls[0].op, got)
 	}
+	tr = &fakeTransport{reply: json.RawMessage(`{"passages":[],"matches":0}`)}
+	runCLI(t, tr, "grep", "x", "--context", "0")
+	if got, _ := json.Marshal(tr.calls[0].args); string(got) != `{"context":0,"pattern":"x"}` {
+		t.Errorf("--context 0 sent %s", got)
+	}
 	tr = &fakeTransport{reply: json.RawMessage(`{"passages":[],"matches":0,"files_matched":0,"truncated":false}`)}
 	if code, out, errOut := runCLI(t, tr, "grep", "nothing"); code != ExitOK || out != "" || !strings.Contains(errOut, "no matches") {
 		t.Errorf("no matches: %d %q %q", code, out, errOut)

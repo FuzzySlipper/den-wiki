@@ -306,7 +306,7 @@ type wikiGrepArgs struct {
 	Folder        string `json:"folder,omitempty" desc:"Search a folder and everything under it, e.g. wiki/rusty-dagger."`
 	Topic         string `json:"topic,omitempty" desc:"Search the wiki pages naming this topic or one of its subtopics (wiki_taxonomy lists them)."`
 	Zone          string `json:"zone,omitempty" desc:"Search one zone: wiki, sources or trails."`
-	Context       int    `json:"context,omitempty" min:"0" max:"20" desc:"Lines before and after each match; default 2."`
+	Context       *int   `json:"context,omitempty" min:"0" max:"20" desc:"Lines before and after each match; default 2, 0 for the matching lines alone."`
 	PerFile       int    `json:"per_file,omitempty" min:"1" max:"200" desc:"Matches per file; default 10."`
 	Limit         int    `json:"limit,omitempty" min:"1" max:"500" desc:"Matches in all; default 50."`
 }
@@ -484,8 +484,8 @@ func wikiOps(d Deps) []*registry.Operation {
 				return nil, &registry.Error{Code: registry.CodeBackendUnavailable, Message: "the facade has no content_dir configured, so the content cannot be searched"}
 			}
 			ctxLines := 2
-			if a.Context > 0 {
-				ctxLines = a.Context
+			if a.Context != nil {
+				ctxLines = *a.Context
 			}
 			res, err := grep.Search(w.dir, grep.Scope{Path: a.Path, Folder: a.Folder, Topic: a.Topic, Zone: a.Zone},
 				grep.Options{Pattern: a.Pattern, Regex: a.Regex, CaseSensitive: a.CaseSensitive, Context: ctxLines, PerFile: a.PerFile, Max: a.Limit})

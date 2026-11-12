@@ -65,9 +65,10 @@ type Line struct {
 // Passage is one run of matches with their context, under one heading.
 type Passage struct {
 	Path string `json:"path"`
-	// Heading is the heading path the first match sits under, outermost
-	// first, e.g. "Combat › Stamina and Fatigue"; empty above the first
-	// heading. wiki_read's section takes its last part.
+	// Heading is the heading path every hit in the passage sits under,
+	// outermost first, e.g. "Combat › Stamina and Fatigue"; empty above the
+	// first heading. wiki_read's section takes its last part. Matches under
+	// different headings are separate passages, whose context may overlap.
 	Heading string `json:"heading,omitempty"`
 	// Hits are the matching line numbers; Lines adds the context.
 	Hits  []int  `json:"hits"`
@@ -172,7 +173,9 @@ func searchFile(rel, src string, re *regexp.Regexp, opts Options, room int) ([]P
 	end := -1 // last line index the current passage covers
 	for _, h := range hits {
 		from, to := max(0, h-opts.Context), min(len(lines)-1, h+opts.Context)
-		if len(out) > 0 && from <= end+1 {
+		// Nearby matches share a passage only under the same heading, so
+		// each passage's heading is every one of its hits' heading.
+		if len(out) > 0 && from <= end+1 && heads[h] == out[len(out)-1].Heading {
 			p := &out[len(out)-1]
 			p.Hits = append(p.Hits, h+1)
 			for i := end + 1; i <= to; i++ {

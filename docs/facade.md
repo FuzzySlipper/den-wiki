@@ -70,8 +70,9 @@ subtopics', by frontmatter) or `zone`; none searches `wiki/`, `sources/` and
 returns `passages`: each with `path`, the `heading` path its first match sits
 under (`Combat › Stamina and Fatigue`; fenced code and frontmatter do not
 count), the matching line numbers in `hits`, and `lines` with `context` lines
-around them (default 2), long lines cut around the match; nearby matches share
-a passage. `per_file` (default 10) and `limit` (default 50) bound the matches,
+around them (default 2; 0 for the matching lines alone), long lines cut around
+the match. Nearby matches share a passage when they sit under the same
+heading, so every hit in a passage is in the section its `heading` names. `per_file` (default 10) and `limit` (default 50) bound the matches,
 and `truncated` says when they cut some off. `wiki_read` with `section: "<the
 heading's text>"` then returns just that section, to the next heading at its
 level or above. Both read the content dir, so they work while OK is down, and
