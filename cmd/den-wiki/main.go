@@ -37,6 +37,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runLint(args[1:], stdout, stderr)
 	case "serve":
 		return runServe(args[1:], stderr)
+	case "ok-watchdog":
+		return runWatchdog(args[1:], stderr)
 	case "-h", "--help":
 		return cli.Run(nil, env)
 	}

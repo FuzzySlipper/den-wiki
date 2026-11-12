@@ -123,3 +123,16 @@ func TestListRules(t *testing.T) {
 		t.Fatalf("exit %d, output:\n%s", code, out)
 	}
 }
+
+func TestWatchdogFlags(t *testing.T) {
+	var out, errb bytes.Buffer
+	for _, args := range [][]string{{"--failures", "0"}, {"--interval", "0s"}, {"extra"}} {
+		errb.Reset()
+		if code := run(append([]string{"ok-watchdog"}, args...), &out, &errb); code != exitUsage || !strings.Contains(errb.String(), "Usage: den-wiki ok-watchdog") {
+			t.Errorf("%v: exit %d\n%s", args, code, errb.String())
+		}
+	}
+	if code := run([]string{"ok-watchdog", "--help"}, &out, &errb); code != exitOK {
+		t.Errorf("--help: exit %d", code)
+	}
+}

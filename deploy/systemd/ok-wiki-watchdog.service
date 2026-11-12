@@ -1,0 +1,13 @@
+[Unit]
+Description=Restart OpenKnowledge when it stops answering (den-wiki ok-watchdog)
+After=ok-wiki.service
+
+[Service]
+# Root, to restart ok-wiki.service. Each failed ping and restart is logged:
+#   journalctl -u ok-wiki-watchdog -g 'restarting OpenKnowledge'
+ExecStart=/usr/local/bin/den-wiki ok-watchdog --unit ok-wiki.service
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

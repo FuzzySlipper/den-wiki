@@ -110,9 +110,10 @@ systemctl restart nftables
 echo "== units"
 install -m 0644 "$bundle"/deploy/systemd/*.service "$bundle"/deploy/systemd/*.timer /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable --quiet ok-wiki.service den-wiki.service den-wiki-push.timer
+systemctl enable --quiet ok-wiki.service den-wiki.service den-wiki-push.timer ok-wiki-watchdog.service
 systemctl restart ok-wiki.service
 systemctl restart den-wiki.service
 systemctl start den-wiki-push.timer
+systemctl restart ok-wiki-watchdog.service
 
 echo "== done: node $(node --version), ok $("$ok_dir/node_modules/.bin/ok" --version)"

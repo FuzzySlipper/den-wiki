@@ -22,6 +22,7 @@ Usage:
   den-wiki health                            den-wiki and backend health (exit 6 if unhealthy)
   den-wiki lint [flags] <content-dir>        check content locally (den-wiki lint --help)
   den-wiki serve --config <file>             run the den-wiki service
+  den-wiki ok-watchdog [flags]               restart a hung OpenKnowledge (den-wiki ok-watchdog --help)
 
 Global flags (anywhere on the line):
   --endpoint URL    den-wiki MCP endpoint (default from config, else ` + DefaultEndpoint + `)

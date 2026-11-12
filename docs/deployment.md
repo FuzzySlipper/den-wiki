@@ -20,6 +20,7 @@ den-wiki runs in its own LXC on den-prox-mini (Proxmox host `prox`,
 |---|---|---|
 | `ok-wiki.service` | OpenKnowledge (UI and MCP), user `denwiki`, cwd `/srv/den-wiki-content` | `0.0.0.0:4800` |
 | `den-wiki.service` | `den-wiki serve --config /etc/den-wiki/den-wiki.yml` (MCP facade, ledger, content commits, the background commits of UI changes, and the read-only reader), user `denwiki` | `192.168.1.13:7341` |
+| `ok-wiki-watchdog.service` | `den-wiki ok-watchdog`, root: pings OK's MCP every minute and restarts `ok-wiki.service` after 3 failed pings in a row (see below) | — |
 | `den-wiki-push.timer` | `den-wiki-push.service` every 15 minutes: `git push` of `main` to every remote of the content repo | — |
 | `nftables.service` | `/etc/nftables.conf`: ports 4800 and 7341 accept only loopback and Caddy (192.168.1.6) | — |
 
@@ -28,6 +29,22 @@ serves the UI to Caddy, which needs `server.allowExternal` (in the untracked
 `/srv/den-wiki-content/.ok/local/config.yml`) and `--external-url
 https://edit.wiki.dragonden.stream`. `KillMode=control-group` stops OK's detached
 server process with the unit.
+
+OK can hang with its unit still active, so `Restart=on-failure` never fires:
+on 2026-11-11 its file watcher lost its subscription during a bulk import and
+OK stopped answering for 35 minutes (#10740). `ok-wiki-watchdog` covers that.
+It skips a stopped unit (that is systemd's or a person's doing) and the first
+two minutes after OK starts, so a restart has time to come up; a hang is
+restarted within about four minutes. Each failed ping, recovery and restart is
+in its journal:
+
+```bash
+journalctl -u ok-wiki-watchdog -g 'restarting OpenKnowledge'   # the restarts
+journalctl -u ok-wiki-watchdog --since today                   # everything
+```
+
+`den-wiki ok-watchdog --help` lists its flags (endpoint, unit, interval,
+timeout, failures, grace).
 
 ## Paths
 
