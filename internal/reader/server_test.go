@@ -295,6 +295,8 @@ func TestTopicOverviewGroupsItsPages(t *testing.T) {
 		"taxonomy.yml": taxonomy + `  - {name: projects, description: Our own projects.}
   - {name: rusty-dagger, description: The project's documentation., parent: projects, overview: wiki/rusty-dagger.md}
   - {name: broken, description: Overview missing., parent: projects, overview: wiki/nope.md}
+  - {name: elsewhere, description: Overview names another topic., parent: projects, overview: wiki/other-project.md}
+  - {name: untopiced, description: Overview has no topic., parent: projects, overview: wiki/loose.md}
 `,
 		"wiki/rusty-dagger.md":        page("Rusty Dagger", "rusty-dagger", "hub", "The project."),
 		"wiki/rusty-dagger/combat.md": page("Combat", "rusty-dagger", "concept", "Combat."),
@@ -329,6 +331,14 @@ func TestTopicOverviewGroupsItsPages(t *testing.T) {
 	}
 	// A topic whose overview is missing stays a plain topic.
 	mustContain(t, tree, `<a class="tree-topic" href="/topic/broken">Broken</a>`, `<a href="/wiki/broken-page">Broken page</a>`)
+	// An overview whose page names another topic, or none, is ignored: the
+	// topic stays plain and the page stays where its own topic puts it.
+	mustContain(t, tree, `<a class="tree-topic" href="/topic/elsewhere">Elsewhere</a>`, `<a class="tree-topic" href="/topic/untopiced">Untopiced</a>`,
+		`<li class="tree-page"><a href="/wiki/other-project" class="current" aria-current="page">Other project</a></li>`)
+	_, _, unsorted := get(t, srv, "/unsorted")
+	mustContain(t, unsorted, `<a href="/wiki/loose">Loose page</a>`)
+	_, _, other := get(t, srv, "/wiki/other-project")
+	mustContain(t, other, `<p class="crumbs"><a href="/">Home</a> › <a href="/topic/projects">Projects</a></p>`)
 	// Topics without an overview keep their details markup.
 	mustContain(t, tree, `<summary><a class="tree-topic" href="/topic/gamedev">Gamedev</a>`)
 

@@ -258,24 +258,19 @@ func (s *site) build(pages []string) (*Library, error) {
 		}
 		lib.Recent = append(lib.Recent, e)
 	}
-	// An overview must be a wiki page this scan found; anything else
-	// (lint's taxonomy.topic_overview) leaves the topic plain. A page
-	// introduces one topic: the first that names it.
-	claimed := map[string]bool{}
+	// An overview must be a wiki page this scan found that names the topic
+	// itself, so its count and breadcrumbs belong to the group it heads.
+	// Anything else (lint's taxonomy.topic_overview) leaves the topic plain
+	// and the page where its own topic puts it.
 	for _, t := range tax.Topics {
 		node, e := lib.ByName[t.Name], lib.Pages[t.Overview]
-		if node == nil || node.Overview != nil || e == nil || claimed[e.Path] {
+		if node == nil || node.Overview != nil || e == nil || e.Topic != node.Name {
 			continue
 		}
-		claimed[e.Path] = true
 		node.Overview = e
-		// The overview is the topic's entry, so it is not listed again
-		// wherever its own topic field would put it.
-		if home := lib.ByName[e.Topic]; home != nil {
-			home.Pages = without(home.Pages, e)
-		} else {
-			lib.Unsorted = without(lib.Unsorted, e)
-		}
+		// The overview is the group's entry, so it is not listed again
+		// among the group's pages.
+		node.Pages = without(node.Pages, e)
 	}
 	for _, t := range lib.ByName {
 		sortEntries(t.Pages)

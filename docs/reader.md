@@ -23,8 +23,8 @@ opened from the header.
   the group title when it is the overview. Breadcrumbs pass through the group
   to the overview, and on the overview end at the group's parent. The topic's
   own `/topic/<name>` listing still works and links the overview. An overview
-  that is missing or claimed by an earlier topic is ignored, and the topic is
-  drawn plainly.
+  that is missing, or whose page does not name the topic, is ignored: the
+  topic is drawn plainly and the page stays where its own topic puts it.
 - **Centre: the page.** It has breadcrumbs from its topic, the title, type,
   review state, updated date and the edit link, then the body. Citation
   footnotes are gathered under References at the end. Each reference links to
