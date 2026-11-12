@@ -2,6 +2,7 @@ package facade
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -173,5 +174,60 @@ func TestContentOnlyReadSkipsOpenKnowledge(t *testing.T) {
 	}
 	if sc, isErr := h.call(t, "reader", "wiki_read", map[string]any{"path": "wiki/missing.md", "content_only": true}); !isErr || errorCode(sc) != "not_found" {
 		t.Errorf("missing page: %v", sc)
+	}
+}
+
+func TestGrepAndSectionReadSkipOpenKnowledge(t *testing.T) {
+	dir := t.TempDir()
+	put(t, dir, "taxonomy.yml", "version: 1\ntopics:\n  - {name: projects, description: p}\n")
+	put(t, dir, "wiki/combat.md", "---\ntitle: Combat\ntopic: projects\n---\n\n## Stamina\n\nStamina drains.\n\n## Other\n\nNothing.\n")
+	put(t, dir, "wiki/elsewhere.md", "---\ntitle: Elsewhere\n---\n\nStamina too.\n")
+	wiki := &countingWiki{}
+	h := newHarnessWith(t, wiki, dir)
+
+	sc, isErr := h.call(t, "reader", "wiki_grep", map[string]any{"pattern": "drains", "topic": "projects", "context": 1})
+	if isErr {
+		t.Fatalf("grep: %v", sc)
+	}
+	ps, _ := sc["passages"].([]any)
+	if len(ps) != 1 || sc["matches"] != float64(1) {
+		t.Fatalf("grep result %v", sc)
+	}
+	p := ps[0].(map[string]any)
+	if p["path"] != "wiki/combat.md" || p["heading"] != "Stamina" || len(p["lines"].([]any)) != 3 {
+		t.Errorf("passage %v", p)
+	}
+	for args, code := range map[string]string{
+		`{"pattern":"x","path":"wiki/a.md","zone":"wiki"}`: "invalid_arguments",
+		`{"pattern":"(","regex":true}`:                     "invalid_arguments",
+		`{"pattern":"x","topic":"cooking"}`:                "not_found",
+	} {
+		var m map[string]any
+		_ = json.Unmarshal([]byte(args), &m)
+		if sc, isErr := h.call(t, "reader", "wiki_grep", m); !isErr || errorCode(sc) != code {
+			t.Errorf("%s: %v", args, sc)
+		}
+	}
+
+	sc, isErr = h.call(t, "reader", "wiki_read", map[string]any{"path": "wiki/combat.md", "section": "stamina"})
+	if isErr || sc["section"] != "Stamina" || sc["content"] != "## Stamina\n\nStamina drains.\n\n" {
+		t.Errorf("section read: %v", sc)
+	}
+	sc, isErr = h.call(t, "reader", "wiki_read", map[string]any{"path": "wiki/combat.md", "section": "Missing"})
+	if !isErr || errorCode(sc) != "not_found" || !strings.Contains(sc["error"].(map[string]any)["message"].(string), "Stamina; Other") {
+		t.Errorf("missing section: %v", sc)
+	}
+	if wiki.count() != 0 {
+		t.Errorf("grep and section reads called OpenKnowledge %d times", wiki.count())
+	}
+	entries, _ := h.reads.Recent(context.Background(), 10)
+	var logged bool
+	for _, e := range entries {
+		if e.Tool == "wiki_grep" && e.Query == "drains" && len(e.Returned) == 1 && e.Returned[0] == "wiki/combat.md" {
+			logged = true
+		}
+	}
+	if !logged {
+		t.Errorf("grep not in the read log: %+v", entries)
 	}
 }

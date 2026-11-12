@@ -20,7 +20,7 @@ shows the full schema). Use whichever is available; they behave the same.
 
 | Step | Operations |
 |---|---|
-| Find and read | `wiki_search`, `wiki_read`; long tail: `wiki_list`, `wiki_links`, `wiki_history` |
+| Find and read | `wiki_search`, `wiki_grep`, `wiki_read`; long tail: `wiki_list`, `wiki_links`, `wiki_history` |
 | Ledger | `job_list`, `job_create`, `job_claim`, `job_finish`; long tail: `job_get`, `job_renew`, `job_release`, `job_abandon` |
 | Write | `wiki_write`, `wiki_edit`, `wiki_attach` (each takes your run's `trail` slug) |
 | Check | `wiki_taxonomy` (allowed types and tags); long tail: `wiki_lint` |
@@ -42,6 +42,10 @@ Before searching anywhere else:
 - `wiki_search` the question's key terms, synonyms and likely page names.
   Results under `wiki/` are current understanding; results under `trails/` are
   earlier runs, with their queries, sources and dead ends.
+- To find what a page or a part of the wiki says about something, `wiki_grep`
+  it (scoped to a `path`, `folder`, `topic` or `zone`): you get the matching
+  lines with context and the heading each sits under, then `wiki_read` with
+  `section` reads just that section. Do this before reading a long page whole.
 - Read the promising pages with `wiki_read` and `content_only: true`: just the
   Markdown, without the links and history that can be larger than the page.
   Use it too for long trails and exemplar pages you read as context. When you

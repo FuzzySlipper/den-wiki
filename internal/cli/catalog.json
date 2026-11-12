@@ -1,5 +1,5 @@
 {
-  "revision": "catalog-5f0dfb7bcb10",
+  "revision": "catalog-c9f93f7de1cd",
   "operations": [
     {
       "name": "job_abandon",
@@ -593,6 +593,86 @@
       }
     },
     {
+      "name": "wiki_grep",
+      "description": "Find where text appears, without reading whole pages: matching lines with context and the heading each sits under, across the wiki or within one page, folder, topic or zone. Then read just that part with wiki_read section. wiki_search ranks pages by relevance; wiki_grep finds the passage. Works while OpenKnowledge is down.",
+      "risk": "read",
+      "tier": "default",
+      "backend": "content",
+      "needs_agent": false,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "case_sensitive": {
+            "description": "Match case; the default ignores it.",
+            "type": "boolean"
+          },
+          "context": {
+            "description": "Lines before and after each match; default 2.",
+            "maximum": 20,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "folder": {
+            "description": "Search a folder and everything under it, e.g. wiki/rusty-dagger.",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Matches in all; default 50.",
+            "maximum": 500,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "path": {
+            "description": "Search one page, source or trail. Give at most one of path, folder, topic or zone; none searches wiki/, sources/ and trails/.",
+            "type": "string"
+          },
+          "pattern": {
+            "description": "Text to find; literal unless regex is true.",
+            "type": "string"
+          },
+          "per_file": {
+            "description": "Matches per file; default 10.",
+            "maximum": 200,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "regex": {
+            "description": "Treat pattern as an RE2 regular expression.",
+            "type": "boolean"
+          },
+          "topic": {
+            "description": "Search the wiki pages naming this topic or one of its subtopics (wiki_taxonomy lists them).",
+            "type": "string"
+          },
+          "zone": {
+            "description": "Search one zone: wiki, sources or trails.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pattern"
+        ],
+        "type": "object"
+      },
+      "examples": [
+        {
+          "description": "Where a project's pages discuss stamina",
+          "arguments": {
+            "pattern": "stamina",
+            "topic": "rusty-dagger"
+          }
+        },
+        {
+          "description": "One page, more context",
+          "arguments": {
+            "context": 5,
+            "path": "wiki/rusty-dagger/combat.md",
+            "pattern": "fatigue"
+          }
+        }
+      ]
+    },
+    {
       "name": "wiki_history",
       "description": "Edit history of a page, source or trail from OpenKnowledge, newest first, attributed per agent.",
       "risk": "read",
@@ -827,6 +907,10 @@
           },
           "path": {
             "description": "Content-root-relative page, source or trail, e.g. wiki/agent-memory.md.",
+            "type": "string"
+          },
+          "section": {
+            "description": "Return only this heading and what is under it, up to the next heading at its level or above (case-insensitive heading text, e.g. the last part of a wiki_grep heading). Implies content_only.",
             "type": "string"
           }
         },

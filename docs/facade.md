@@ -35,7 +35,8 @@ agent identity are rejected before any backend is called.
 | Operation | Risk | Discovery | Backend |
 |---|---|---|---|
 | `wiki_search` | read | default | OK `search` |
-| `wiki_read` | read | default | OK `exec cat` briefing, file from the content dir; `content_only` returns path and content from the content dir alone, without calling OK |
+| `wiki_read` | read | default | OK `exec cat` briefing, file from the content dir; `content_only` returns path and content from the content dir alone, without calling OK; `section` returns one heading's section the same way |
+| `wiki_grep` | read | default | the content dir (`internal/grep`); see below |
 | `wiki_write` | write | default | OK `write`, then a den-wiki commit |
 | `wiki_edit` | write | default | OK `edit`, then a den-wiki commit |
 | `wiki_attach` | write | default | OK `write` (asset) and a den-wiki commit, or the media store; see [Media](#media) |
@@ -58,6 +59,26 @@ agent identity are rejected before any backend is called.
 `params.toolProfile: "full"`) to list everything. Long-tail operations are
 always callable by exact name. Promoting one to the default tier is a
 per-operation decision backed by usage evidence from the telemetry.
+
+`wiki_grep` (#10756) finds where text appears without reading whole files.
+`wiki_search` ranks pages by relevance but returns no text, so an agent that
+lands on a long page otherwise reads all of it. It takes a literal `pattern`
+(or RE2 with `regex: true`; case-insensitive unless `case_sensitive`), and at
+most one scope: `path`, `folder`, `topic` (that topic's pages and its
+subtopics', by frontmatter) or `zone`; none searches `wiki/`, `sources/` and
+`trails/`, leaving out `.ok/`, assets and generated `index.md` files. It
+returns `passages`: each with `path`, the `heading` path its first match sits
+under (`Combat › Stamina and Fatigue`; fenced code and frontmatter do not
+count), the matching line numbers in `hits`, and `lines` with `context` lines
+around them (default 2), long lines cut around the match; nearby matches share
+a passage. `per_file` (default 10) and `limit` (default 50) bound the matches,
+and `truncated` says when they cut some off. `wiki_read` with `section: "<the
+heading's text>"` then returns just that section, to the next heading at its
+level or above. Both read the content dir, so they work while OK is down, and
+both are logged as reads. It starts in the default tier because it is the
+step between search and read that every reading agent takes. The CLI's
+`den-wiki grep <pattern> [--topic T ...]` prints passages as `path › heading`
+followed by `N:` matching and `N-` context lines.
 
 `wiki_trails` lists trails by kind (`research`, `round-synthesis`,
 `calibration`, `curation`; see the content contract's trail kinds), newest

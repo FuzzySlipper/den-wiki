@@ -325,3 +325,38 @@ func TestCatPrintsTheMarkdown(t *testing.T) {
 		t.Errorf("missing page: exit %d", code)
 	}
 }
+
+func TestGrepPrintsPassages(t *testing.T) {
+	tr := &fakeTransport{reply: json.RawMessage(`{"passages":[
+		{"path":"wiki/combat.md","heading":"Combat › Stamina","hits":[8],"lines":[{"n":7,"text":""},{"n":8,"text":"Stamina drains."},{"n":9,"text":""}]},
+		{"path":"wiki/other.md","hits":[3],"lines":[{"n":3,"text":"stamina too"}]}],
+		"matches":2,"files_matched":2,"truncated":true}`)}
+	code, out, errOut := runCLI(t, tr, "grep", "--regex", "stamina|fatigue", "--topic", "rusty-dagger", "--context=1")
+	if code != ExitOK {
+		t.Fatalf("exit %d: %s", code, errOut)
+	}
+	want := "wiki/combat.md › Combat › Stamina\n7-\n8:Stamina drains.\n9-\n\nwiki/other.md\n3:stamina too\n"
+	if out != want {
+		t.Errorf("output %q\nwant %q", out, want)
+	}
+	if !strings.Contains(errOut, "cut off") {
+		t.Errorf("truncation not reported: %q", errOut)
+	}
+	got, _ := json.Marshal(tr.calls[0].args)
+	if tr.calls[0].op != "wiki_grep" || string(got) != `{"context":1,"pattern":"stamina|fatigue","regex":true,"topic":"rusty-dagger"}` {
+		t.Errorf("call %s %s", tr.calls[0].op, got)
+	}
+	tr = &fakeTransport{reply: json.RawMessage(`{"passages":[],"matches":0,"files_matched":0,"truncated":false}`)}
+	if code, out, errOut := runCLI(t, tr, "grep", "nothing"); code != ExitOK || out != "" || !strings.Contains(errOut, "no matches") {
+		t.Errorf("no matches: %d %q %q", code, out, errOut)
+	}
+	for _, args := range [][]string{{"grep"}, {"grep", "a", "b"}} {
+		if code, _, _ := runCLI(t, &fakeTransport{}, args...); code != ExitUsage {
+			t.Errorf("%v: exit %d", args, code)
+		}
+	}
+	if code, _, _ := runCLI(t, &fakeTransport{}, "grep", "x", "--zone", "wiki", "--path", "wiki/a.md"); code != ExitOK {
+		// Scope conflicts are the server's to reject; the CLI passes them on.
+		t.Errorf("two scopes: exit %d", code)
+	}
+}

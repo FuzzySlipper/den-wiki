@@ -16,6 +16,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/FuzzySlipper/den-wiki/internal/grep"
 	"github.com/FuzzySlipper/den-wiki/internal/lint"
 	"github.com/FuzzySlipper/den-wiki/internal/media"
 	"github.com/FuzzySlipper/den-wiki/internal/okclient"
@@ -294,6 +295,20 @@ func (w *wiki) linkViews(ctx context.Context, agent string, args map[string]any)
 type wikiReadArgs struct {
 	Path        string `json:"path" required:"true" desc:"Content-root-relative page, source or trail, e.g. wiki/agent-memory.md."`
 	ContentOnly bool   `json:"content_only,omitempty" desc:"Return only path and content (the Markdown, frontmatter included), without links, history or zone rules: the cheap read when a page is context. Works while OpenKnowledge is down."`
+	Section     string `json:"section,omitempty" desc:"Return only this heading and what is under it, up to the next heading at its level or above (case-insensitive heading text, e.g. the last part of a wiki_grep heading). Implies content_only."`
+}
+
+type wikiGrepArgs struct {
+	Pattern       string `json:"pattern" required:"true" desc:"Text to find; literal unless regex is true."`
+	Regex         bool   `json:"regex,omitempty" desc:"Treat pattern as an RE2 regular expression."`
+	CaseSensitive bool   `json:"case_sensitive,omitempty" desc:"Match case; the default ignores it."`
+	Path          string `json:"path,omitempty" desc:"Search one page, source or trail. Give at most one of path, folder, topic or zone; none searches wiki/, sources/ and trails/."`
+	Folder        string `json:"folder,omitempty" desc:"Search a folder and everything under it, e.g. wiki/rusty-dagger."`
+	Topic         string `json:"topic,omitempty" desc:"Search the wiki pages naming this topic or one of its subtopics (wiki_taxonomy lists them)."`
+	Zone          string `json:"zone,omitempty" desc:"Search one zone: wiki, sources or trails."`
+	Context       int    `json:"context,omitempty" min:"0" max:"20" desc:"Lines before and after each match; default 2."`
+	PerFile       int    `json:"per_file,omitempty" min:"1" max:"200" desc:"Matches per file; default 10."`
+	Limit         int    `json:"limit,omitempty" min:"1" max:"500" desc:"Matches in all; default 50."`
 }
 
 type wikiListArgs struct {
@@ -425,6 +440,18 @@ func wikiOps(d Deps) []*registry.Operation {
 			if !found {
 				return nil, &registry.Error{Code: registry.CodeNotFound, Message: rel + " does not exist; wiki_search finds pages"}
 			}
+			if a.Section != "" {
+				text, heading, ok, all := grep.Section(string(content), a.Section)
+				if !ok {
+					msg := fmt.Sprintf("%s has no heading %q", rel, a.Section)
+					if len(all) > 0 {
+						msg += "; its headings: " + strings.Join(all, "; ")
+					}
+					return nil, &registry.Error{Code: registry.CodeNotFound, Message: msg}
+				}
+				c.NoteRead(rel, nil, []string{rel})
+				return map[string]any{"path": rel, "section": heading, "content": text}, nil
+			}
 			if a.ContentOnly {
 				c.NoteRead(rel, nil, []string{rel})
 				return map[string]any{"path": rel, "content": string(content)}, nil
@@ -444,6 +471,40 @@ func wikiOps(d Deps) []*registry.Operation {
 			}
 			c.NoteRead(rel, nil, []string{rel})
 			return out, nil
+		}),
+		registry.New(registry.Operation{
+			Name: "wiki_grep", Risk: registry.RiskRead, Tier: registry.TierDefault, Backend: "content",
+			Description: "Find where text appears, without reading whole pages: matching lines with context and the heading each sits under, across the wiki or within one page, folder, topic or zone. Then read just that part with wiki_read section. wiki_search ranks pages by relevance; wiki_grep finds the passage. Works while OpenKnowledge is down.",
+			Examples: []registry.Example{
+				{Description: "Where a project's pages discuss stamina", Arguments: map[string]any{"pattern": "stamina", "topic": "rusty-dagger"}},
+				{Description: "One page, more context", Arguments: map[string]any{"pattern": "fatigue", "path": "wiki/rusty-dagger/combat.md", "context": 5}},
+			},
+		}, func(_ context.Context, c *registry.Call, a wikiGrepArgs) (any, error) {
+			if w.dir == "" {
+				return nil, &registry.Error{Code: registry.CodeBackendUnavailable, Message: "the facade has no content_dir configured, so the content cannot be searched"}
+			}
+			ctxLines := 2
+			if a.Context > 0 {
+				ctxLines = a.Context
+			}
+			res, err := grep.Search(w.dir, grep.Scope{Path: a.Path, Folder: a.Folder, Topic: a.Topic, Zone: a.Zone},
+				grep.Options{Pattern: a.Pattern, Regex: a.Regex, CaseSensitive: a.CaseSensitive, Context: ctxLines, PerFile: a.PerFile, Max: a.Limit})
+			switch {
+			case errors.Is(err, grep.ErrInvalid):
+				return nil, &registry.Error{Code: registry.CodeInvalidArguments, Message: err.Error()}
+			case errors.Is(err, grep.ErrNotFound):
+				return nil, &registry.Error{Code: registry.CodeNotFound, Message: err.Error()}
+			case err != nil:
+				return nil, &registry.Error{Code: registry.CodeBackendError, Message: "grep: " + err.Error()}
+			}
+			var returned []string
+			for _, p := range res.Passages {
+				if len(returned) == 0 || returned[len(returned)-1] != p.Path {
+					returned = append(returned, p.Path)
+				}
+			}
+			c.NoteRead(a.Pattern, returned, nil)
+			return res, nil
 		}),
 		registry.New(registry.Operation{
 			Name: "wiki_list", Risk: registry.RiskRead, Backend: backend,

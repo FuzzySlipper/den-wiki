@@ -167,6 +167,8 @@ func Run(args []string, env Env) int {
 	case "catalog":
 		_, _ = env.Stdout.Write(cat.Marshal())
 		return ExitOK
+	case "grep":
+		return grepContent(env, *cat, g, rest)
 	case "cat":
 		if len(rest) != 1 {
 			return usageErr(env, g.human, registry.CodeInvalidArguments, "usage: den-wiki cat <path>")
@@ -388,6 +390,116 @@ func catPage(env Env, cat Catalog, g globals, path string) int {
 	}
 	fmt.Fprint(env.Stdout, *page.Content)
 	return ExitOK
+}
+
+// grepContent runs wiki_grep and prints its passages the way grep -n does:
+// "path › heading" over each passage, then "N:" for matching lines and "N-"
+// for context. The first argument that is not a flag is the pattern.
+func grepContent(env Env, cat Catalog, g globals, rest []string) int {
+	e, ok := cat.Find("wiki_grep")
+	if !ok {
+		return unknownOp(env, g.human, cat, "wiki_grep")
+	}
+	if g.help {
+		fmt.Fprint(env.Stdout, "Usage: den-wiki grep <pattern> [--path P | --folder F | --topic T | --zone Z] [--context N] [--regex] [--case-sensitive] [--per-file N] [--limit N]\n\nPrints wiki_grep's passages as text; wiki_grep --help has the fields.\n")
+		return ExitOK
+	}
+	var flags []string
+	pattern := ""
+	for i := 0; i < len(rest); i++ {
+		a := rest[i]
+		if strings.HasPrefix(a, "-") {
+			flags = append(flags, a)
+			if !strings.Contains(a, "=") && i+1 < len(rest) && !strings.HasPrefix(rest[i+1], "-") && !boolFlag(e, a) {
+				i++
+				flags = append(flags, rest[i])
+			}
+			continue
+		}
+		if pattern != "" {
+			return usageErr(env, g.human, registry.CodeInvalidArguments, "usage: den-wiki grep <pattern> [flags]; quote a pattern with spaces")
+		}
+		pattern = a
+	}
+	if pattern == "" && g.argsJSON == "" {
+		return usageErr(env, g.human, registry.CodeInvalidArguments, "usage: den-wiki grep <pattern> [flags]")
+	}
+	if pattern != "" {
+		flags = append([]string{"--pattern", pattern}, flags...)
+	}
+	_, endpoint, agent, err := settings(g)
+	if err != nil {
+		return usageErr(env, g.human, registry.CodeInvalidArguments, "config: "+err.Error())
+	}
+	args, err := buildArgs(e, g, flags, env.Stdin)
+	if err != nil {
+		return fail(env, g.human, registry.ErrorOf(err))
+	}
+	if err := checkArgs(e, args); err != nil {
+		return fail(env, g.human, registry.ErrorOf(err))
+	}
+	tr := env.Transport
+	if tr == nil {
+		tr = &HTTPTransport{Endpoint: endpoint, Timeout: 60 * time.Second}
+	}
+	out, err := tr.Call(context.Background(), agent, "wiki_grep", args)
+	if err != nil {
+		return fail(env, g.human, registry.ErrorOf(err))
+	}
+	var res struct {
+		Passages []struct {
+			Path    string `json:"path"`
+			Heading string `json:"heading"`
+			Hits    []int  `json:"hits"`
+			Lines   []struct {
+				N    int    `json:"n"`
+				Text string `json:"text"`
+			} `json:"lines"`
+		} `json:"passages"`
+		Matches   int  `json:"matches"`
+		Files     int  `json:"files_matched"`
+		Truncated bool `json:"truncated"`
+	}
+	if err := json.Unmarshal(out, &res); err != nil {
+		return fail(env, g.human, &registry.Error{Code: registry.CodeBackendError, Message: "wiki_grep returned no passages"})
+	}
+	for i, p := range res.Passages {
+		if i > 0 {
+			fmt.Fprintln(env.Stdout)
+		}
+		head := p.Path
+		if p.Heading != "" {
+			head += " › " + p.Heading
+		}
+		fmt.Fprintln(env.Stdout, head)
+		hit := map[int]bool{}
+		for _, n := range p.Hits {
+			hit[n] = true
+		}
+		for _, l := range p.Lines {
+			sep := "-"
+			if hit[l.N] {
+				sep = ":"
+			}
+			fmt.Fprintf(env.Stdout, "%d%s%s\n", l.N, sep, l.Text)
+		}
+	}
+	switch {
+	case res.Matches == 0:
+		fmt.Fprintln(env.Stderr, "no matches")
+	case res.Truncated:
+		fmt.Fprintf(env.Stderr, "%d matches in %d files shown; more were cut off: narrow the scope or raise --limit / --per-file\n", res.Matches, res.Files)
+	}
+	return ExitOK
+}
+
+// boolFlag reports whether flag names a boolean field of e, which takes no
+// value.
+func boolFlag(e Entry, flag string) bool {
+	props, _ := e.InputSchema["properties"].(map[string]any)
+	name := strings.ReplaceAll(strings.TrimLeft(flag, "-"), "-", "_")
+	p, _ := props[name].(map[string]any)
+	return p["type"] == "boolean"
 }
 
 // buildArgs turns field flags, or one --args-json object, into arguments.

@@ -49,6 +49,8 @@ den-wiki job_list --statuses open --limit 10
 den-wiki job_claim --id 12 --harness codex
 den-wiki wiki_read --path wiki/agent-memory.md --human
 den-wiki cat wiki/agent-memory.md        # just the Markdown (wiki_read content_only)
+den-wiki grep stamina --topic rusty-dagger --context 3   # matching passages (wiki_grep) as text
+den-wiki wiki_read --path wiki/rusty-dagger/combat.md --section "Stamina and Fatigue"
 den-wiki wiki_write --args-json @page.json
 den-wiki wiki_attach --page wiki/agent-memory.md --name recall.png --content-base64 @recall.png --trail agent-memory-research-2026-10-28
 ```

@@ -152,6 +152,13 @@ func TestEveryOperationThroughTheCLI(t *testing.T) {
 		t.Fatalf("content-only read: %v", r)
 	}
 	run(ExitOK, "cat", "wiki/agent-memory.md")
+	if r := run(ExitOK, "wiki_grep", "--pattern", "memory", "--zone", "wiki", "--context", "1"); r["matches"] == float64(0) {
+		t.Fatalf("grep: %v", r)
+	}
+	run(ExitOK, "grep", "memory", "--path", "wiki/agent-memory.md")
+	if r := run(ExitOK, "wiki_read", "--path", "wiki/agent-memory.md", "--section", "agent memory"); r["section"] != "Agent memory" {
+		t.Fatalf("section read: %v", r)
+	}
 	run(ExitOK, "wiki_list", "--folder", "wiki")
 	run(ExitOK, "wiki_links", "--kinds", "dead,orphans,hubs")
 	run(ExitOK, "wiki_history", "--path", "wiki/agent-memory.md", "--limit", "5")

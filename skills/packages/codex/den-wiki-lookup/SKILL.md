@@ -12,14 +12,18 @@ server and a command of the `den-wiki` CLI (`den-wiki <op> --args-json
 1. `wiki_search` the topic's terms and synonyms (`titles_only: true` for a
    fast pass). Hits under `wiki/` are current understanding; hits under
    `trails/` are earlier research runs.
-2. `wiki_read` the best hits with `content_only: true` for just the Markdown.
+2. To find a specific fact, `wiki_grep` the term (scoped to a page, folder,
+   topic or zone): it returns the matching lines with context and their
+   headings, and `wiki_read` with `section` reads just that section. Read a
+   long page whole only when you need all of it.
+3. `wiki_read` the best hits with `content_only: true` for just the Markdown.
    A full `wiki_read` also carries the page's backlinks, outgoing links and git
    history, which can be larger than the page: use it when you need them. Each commit subject names the
    trail behind the change as `(trail:<slug>)`; read the trail for how a claim
    was reached and which sources were rejected.
-3. Follow links with `wiki_links` and history with `wiki_history` when the
+4. Follow links with `wiki_links` and history with `wiki_history` when the
    page alone is not enough.
-4. Weigh what you read: `curation: unreviewed` pages are agent-written and not
+5. Weigh what you read: `curation: unreviewed` pages are agent-written and not
    yet curated, and `confidence` and the cited sources say how far to trust a
    claim.
 
