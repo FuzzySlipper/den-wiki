@@ -33,11 +33,11 @@
       }
     },
     "topics": {
-      "description": "The topic tree: subjects that sort pages, one topic per page. A topic may name a parent topic. Unlike tags, which cut across concerns, a page sits in exactly one topic.",
+      "description": "The topic tree: subjects that sort pages, one topic per page. A topic may name a parent topic, and an overview page that the reader shows as the topic's entry, with the topic's pages under it. Unlike tags, which cut across concerns, a page sits in exactly one topic.",
       "type": "array",
       "uniqueItems": true,
       "items": {
-        "$ref": "#/$defs/entry"
+        "$ref": "#/$defs/topic"
       }
     }
   },
@@ -62,6 +62,31 @@
         },
         "parent": {
           "$ref": "#/$defs/slug"
+        }
+      },
+      "additionalProperties": false
+    },
+    "topic": {
+      "type": "object",
+      "required": [
+        "name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/slug"
+        },
+        "description": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "parent": {
+          "$ref": "#/$defs/slug"
+        },
+        "overview": {
+          "description": "The wiki page that introduces the topic, e.g. wiki/rusty-dagger.md. The page names this topic itself.",
+          "type": "string",
+          "pattern": "^wiki/[a-z0-9]+(-[a-z0-9]+)*(/[a-z0-9]+(-[a-z0-9]+)*)*\\.md$"
         }
       },
       "additionalProperties": false

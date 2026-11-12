@@ -99,6 +99,13 @@ a.new, a.new:visited { color: var(--new); }
 .tree-page a { display: block; padding: 0.1rem 0; color: var(--text); }
 .tree-page a:visited { color: var(--text); }
 .tree .current { color: var(--accent); font-weight: 600; }
+/* A topic with an overview page: a toggle, then the title linking to it. */
+.tree-group-head { display: flex; align-items: baseline; gap: 0.15rem; padding: 0.15rem 0; }
+.tree-toggle { flex: none; width: 0.9rem; padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer; font: inherit; line-height: 1; }
+.tree-toggle::before { content: "▸"; display: inline-block; transition: transform 0.1s; }
+.tree-toggle[aria-expanded="true"]::before { transform: rotate(90deg); }
+.tree-toggle:focus-visible, .tree-group-head a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tree-group > ul[hidden] { display: none; }
 .count { color: var(--muted); font-size: 0.8em; font-weight: normal; }
 
 /* Page */

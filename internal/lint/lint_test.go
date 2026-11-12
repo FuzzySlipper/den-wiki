@@ -176,6 +176,13 @@ func TestEachRuleFails(t *testing.T) {
 			replace(t, r, "taxonomy.yml", "description: Software development in general.", "description: Software development in general.\n    parent: agents")
 		}, "taxonomy.topic_parent", "taxonomy.yml"},
 		{"no topic", func(t *testing.T, r string) { replace(t, r, page, "topic: agents\n", "") }, "wiki.no_topic", page},
+		{"overview missing", func(t *testing.T, r string) {
+			replace(t, r, "taxonomy.yml", "overview: wiki/agent-memory.md", "overview: wiki/no-such-page.md")
+		}, "taxonomy.topic_overview", "taxonomy.yml"},
+		{"overview names another topic", func(t *testing.T, r string) { replace(t, r, page, "topic: agents", "topic: dev") }, "taxonomy.topic_overview", page},
+		{"overview shared", func(t *testing.T, r string) {
+			replace(t, r, "taxonomy.yml", "description: Software development in general.", "description: Software development in general.\n    overview: wiki/agent-memory.md")
+		}, "taxonomy.topic_overview", "taxonomy.yml"},
 		{"missing source", func(t *testing.T, r string) {
 			replace(t, r, page, "trails: [", "sources: [sources/no-such-capture.md]\ntrails: [")
 		}, "ref.missing_source", page},

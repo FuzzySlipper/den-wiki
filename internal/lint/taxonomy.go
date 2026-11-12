@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // taxonomy is the parsed taxonomy.yml: the allowed page types, tags and
@@ -13,7 +14,11 @@ type taxonomy struct {
 	types  map[string]bool
 	tags   map[string]bool
 	topics map[string]bool
+	// overviews maps a topic to its overview page, in taxonomy order.
+	overviews []topicOverview
 }
+
+type topicOverview struct{ topic, page string }
 
 // loadTaxonomy reads taxonomy.yml and reports its own findings. It returns nil
 // when the file is missing or unreadable, which turns off tag and type checks.
@@ -50,7 +55,39 @@ func (l *linter) loadTaxonomy() *taxonomy {
 		}
 	}
 	l.checkTopicParents(fields, t.topics)
+	items, _ := fields["topics"].([]any)
+	for _, it := range items {
+		m, _ := it.(map[string]any)
+		name, _ := stringField(m, "name")
+		if page, ok := stringField(m, "overview"); ok && name != "" {
+			t.overviews = append(t.overviews, topicOverview{name, page})
+		}
+	}
 	return t
+}
+
+// checkTopicOverviews reports overviews that are not wiki pages, that two
+// topics share, or whose page names another topic. The reader shows such a
+// topic as a plain topic.
+func (l *linter) checkTopicOverviews() {
+	if l.taxonomy == nil {
+		return
+	}
+	owner := map[string]string{}
+	for _, o := range l.taxonomy.overviews {
+		if prev, ok := owner[o.page]; ok {
+			l.add(newFinding(codeTopicOverview, taxonomyFile, "topics "+quote(prev)+" and "+quote(o.topic)+" both name "+quote(o.page)+" as their overview; a page introduces one topic"))
+			continue
+		}
+		owner[o.page] = o.topic
+		if !strings.HasPrefix(o.page, zoneWiki+"/") || !l.exists(o.page) {
+			l.add(newFinding(codeTopicOverview, taxonomyFile, "topic "+quote(o.topic)+" names overview "+quote(o.page)+", which is not a wiki/ page"))
+			continue
+		}
+		if got := l.topics[o.page]; got != o.topic {
+			l.add(newFinding(codeTopicOverview, o.page, "this page is topic "+quote(o.topic)+"'s overview but names topic "+quote(got)+"; set its topic to "+quote(o.topic)))
+		}
+	}
 }
 
 // checkTopicParents reports topic parents that are not topics, and cycles,

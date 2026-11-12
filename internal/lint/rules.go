@@ -44,6 +44,7 @@ var (
 	codeUnknownType       = rule("taxonomy.unknown_type", Warning, "a page uses a type that is not in taxonomy.yml")
 	codeUnknownTopic      = rule("taxonomy.unknown_topic", Warning, "a page names a topic that is not in taxonomy.yml")
 	codeTopicParent       = rule("taxonomy.topic_parent", Warning, "a taxonomy topic names a parent that is not a topic, or topic parents form a cycle")
+	codeTopicOverview     = rule("taxonomy.topic_overview", Warning, "a taxonomy topic's overview is not an existing wiki/ page, is another topic's overview too, or names a different topic")
 	codeRefSource         = rule("ref.missing_source", Warning, "a page's sources entry names a file that does not exist")
 	codeRefTrail          = rule("ref.missing_trail", Warning, "a trails or captured_by_trail entry names a trail that does not exist")
 	codeRefPage           = rule("ref.missing_page", Warning, "a contradicts entry names a wiki/ page that does not exist")

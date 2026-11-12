@@ -84,7 +84,14 @@ and topics go under "Proposed changes".
 
 Sort `unsorted` pages (`wiki.no_topic`): set `topic` with a `wiki_edit`
 frontmatter patch to the most specific listed topic that fits. Each page has
-one topic; readers browse the wiki by them. Once Patch approves
+one topic; readers browse the wiki by them. A topic with an `overview` (in
+`wiki_taxonomy`) groups a body of pages under one hub, such as a project's
+documentation: the hub and every page in the group name that topic, and the
+reader shows them under the hub. When a set of pages with one hub is still
+flat under a broader topic, propose such a group under "Proposed changes"
+(topic name, parent, overview page; content contract, Topics); fix
+`taxonomy.topic_overview` findings by setting the overview page's `topic`.
+Once Patch approves
 one in conversation, apply it: `references/owner-approved-changes.md`.
 - **unfolded_proposal:** read the trail's "Proposed changes". Apply the ones
   that are right; decline the rest with a reason, or pass them to Patch

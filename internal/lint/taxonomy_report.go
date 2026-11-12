@@ -13,10 +13,12 @@ import (
 // TaxonomyEntry is one type, tag or topic from taxonomy.yml, with the wiki
 // pages that use it.
 type TaxonomyEntry struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Parent      string   `json:"parent,omitempty"`
-	Pages       []string `json:"pages"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Parent      string `json:"parent,omitempty"`
+	// Overview is a topic's overview page, if it has one.
+	Overview string   `json:"overview,omitempty"`
+	Pages    []string `json:"pages"`
 }
 
 // UnlistedName is a type, tag or topic that pages use but taxonomy.yml does
@@ -121,6 +123,7 @@ func taxonomyEntries(fields map[string]any, key string, use map[string][]string)
 		e := TaxonomyEntry{Name: name, Pages: sortedPaths(use[name])}
 		e.Description, _ = stringField(m, "description")
 		e.Parent, _ = stringField(m, "parent")
+		e.Overview, _ = stringField(m, "overview")
 		out = append(out, e)
 	}
 	return out

@@ -52,7 +52,7 @@ func lintOps(contentDir, mediaDir string) []*registry.Operation {
 		}),
 		registry.New(registry.Operation{
 			Name: "wiki_taxonomy", Risk: registry.RiskRead, Tier: registry.TierDefault, Backend: "lint",
-			Description: "The page types, tags and topics taxonomy.yml allows, each with its description, parent and the pages using it; plus types, tags and topics pages use that it does not list, the pages with no topic (unsorted), and the taxonomy lint findings. Give each page one topic, the most specific that fits; use listed tags; propose a new tag or topic in your trail.",
+			Description: "The page types, tags and topics taxonomy.yml allows, each with its description, parent, a topic's overview page and the pages using it; plus types, tags and topics pages use that it does not list, the pages with no topic (unsorted), and the taxonomy lint findings. Give each page one topic, the most specific that fits; use listed tags; propose a new tag or topic in your trail.",
 		}, func(context.Context, *registry.Call, taxonomyArgs) (any, error) {
 			if contentDir == "" {
 				return nil, &registry.Error{Code: registry.CodeBackendUnavailable, Message: "the facade has no content_dir configured, so the taxonomy cannot be read"}

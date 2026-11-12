@@ -185,6 +185,12 @@ type docView struct {
 	SourceURL   string
 }
 
+// IsOverview reports whether the page is its topic's overview, which the
+// breadcrumbs then end before.
+func (v *docView) IsOverview() bool {
+	return v.TopicNode != nil && v.TopicNode.Overview != nil && v.TopicNode.Overview.Path == v.Path
+}
+
 type searchView struct {
 	Results     []Hit
 	Unavailable string
@@ -221,7 +227,7 @@ func (s *Server) topic(w http.ResponseWriter, r *http.Request) {
 		s.render(w, &view{Title: "No such topic", Missing: "topic " + r.PathValue("name"), Status: http.StatusNotFound})
 		return
 	}
-	s.render(w, &view{Title: titleOf(t.Name), Topic: t, Current: "topic:" + t.Name})
+	s.render(w, &view{Title: t.Title(), Topic: t, Current: "topic:" + t.Name})
 }
 
 func (s *Server) unsorted(w http.ResponseWriter, _ *http.Request) {
@@ -398,12 +404,18 @@ type treeArgs struct {
 
 func newTreeArgs(t *Topic, current string) treeArgs {
 	a := treeArgs{Topic: t, Current: current, Here: current == "topic:"+t.Name}
+	if t.Overview != nil && current == t.Overview.Path {
+		a.Here = true
+	}
 	a.Open = a.Here || t.holds(current)
 	return a
 }
 
 // holds reports whether the open topic or page is in t's subtree.
 func (t *Topic) holds(current string) bool {
+	if t.Overview != nil && t.Overview.Path == current {
+		return true
+	}
 	for _, e := range t.Pages {
 		if e.Path == current {
 			return true

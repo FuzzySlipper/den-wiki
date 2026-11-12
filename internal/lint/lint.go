@@ -91,6 +91,8 @@ type linter struct {
 	// names maps a normalised title or alias to the wiki pages that claim it.
 	names    map[string][]string
 	mediaDir string
+	// topics maps each wiki page to the topic it names.
+	topics map[string]string
 }
 
 func (l *linter) add(f Finding) { l.out = append(l.out, f) }
@@ -127,6 +129,7 @@ func (l *linter) run() error {
 		}
 	}
 	l.reportNameCollisions()
+	l.checkTopicOverviews()
 	return nil
 }
 
@@ -285,6 +288,12 @@ func (l *linter) checkPage(rel string, doc document) {
 			}
 		}
 		topic, hasTopic := stringField(f, "topic")
+		if hasTopic {
+			if l.topics == nil {
+				l.topics = map[string]string{}
+			}
+			l.topics[rel] = topic
+		}
 		switch {
 		case hasTopic && !l.taxonomy.topics[topic]:
 			l.add(newFinding(codeUnknownTopic, rel, "topic "+quote(topic)+" is not in taxonomy.yml; use a listed topic or propose a new one"))

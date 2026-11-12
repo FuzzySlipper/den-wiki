@@ -15,6 +15,16 @@ opened from the header.
 - **Left: the topic tree.** It shows `taxonomy.yml`'s topics with page
   counts. Expanding a topic lists its pages, hubs first. Pages with no topic,
   or with a topic the taxonomy does not list, are under Unsorted.
+- **Topic groups.** A topic with an `overview` page (content contract,
+  Topics) is drawn as that page: its title links to the overview, and a
+  separate toggle button expands the topic's subtopics and other pages. The
+  overview is not listed again among them. The group opens when one of its
+  pages, or the overview, is the page being read; the page is highlighted, or
+  the group title when it is the overview. Breadcrumbs pass through the group
+  to the overview, and on the overview end at the group's parent. The topic's
+  own `/topic/<name>` listing still works and links the overview. An overview
+  that is missing or claimed by an earlier topic is ignored, and the topic is
+  drawn plainly.
 - **Centre: the page.** It has breadcrumbs from its topic, the title, type,
   review state, updated date and the edit link, then the body. Citation
   footnotes are gathered under References at the end. Each reference links to
@@ -33,7 +43,7 @@ opened from the header.
 | Route | Shows |
 |---|---|
 | `/` | The topics with their subtopics and counts, the page count, and recently updated pages |
-| `/topic/<name>`, `/unsorted` | A topic's description, subtopics and pages, each with its first paragraph |
+| `/topic/<name>`, `/unsorted` | A topic's description, its overview page if it has one, subtopics and pages, each with its first paragraph |
 | `/wiki/<page>`, `/sources/<path>`, `/trails/<slug>` | A content file: the path without `.md` (`.md` URLs redirect there) |
 | `/wiki/<doc>.assets/<file>` and the like | A file a page shows, from the content dir: only the types `wiki_attach` accepts, with the media store's sandboxing CSP |
 | `/search?q=` | OK search, wiki pages first |

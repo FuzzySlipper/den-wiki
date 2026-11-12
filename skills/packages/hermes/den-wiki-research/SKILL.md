@@ -206,7 +206,9 @@ again. Relative links inside captured material show up as dead links in
   reports anything else as `taxonomy.unknown_tag`, `taxonomy.unknown_type` or
   `taxonomy.unknown_topic`. `topic` is one topic, the most specific that fits:
   it is where readers find the page in the wiki's subject tree, while tags cut
-  across topics. When no tag fits, leave `tags` empty rather than invent one;
+  across topics. A page that belongs to a group with an overview page (a
+  project's documentation, say) takes the group's topic, not the broader one.
+  When no tag fits, leave `tags` empty rather than invent one;
   when no topic fits, leave `topic` out. Propose the missing tag or topic under
   "Proposed changes". Never set `verified`; only a human does. No `sources`
   list: the citation footnotes are the page's sources. When you edit a page

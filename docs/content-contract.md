@@ -235,8 +235,29 @@ topics:
     parent: dev
 ```
 
+A topic may also name an `overview`: the wiki page that introduces it, such as
+a project's hub. The reader then shows the topic as one entry titled and linked
+by that page, with a separate control that expands the topic's subtopics and
+other pages; the overview is not listed again among them. Use it for a body of
+pages with one introduction, such as a project's documentation: give the
+group its own topic under the broader one, name the hub as its `overview`, and
+set `topic` to the group on the hub and on each of its pages.
+
+```yaml
+topics:
+  - name: projects
+    description: Our own projects.
+  - name: rusty-dagger
+    description: The Rusty Dagger project's design and documentation.
+    parent: projects
+    overview: wiki/rusty-dagger.md   # whose frontmatter says topic: rusty-dagger
+```
+
 A page names a listed topic (`taxonomy.unknown_topic`). A topic's parent is
-another topic and parents do not loop (`taxonomy.topic_parent`). While the
+another topic and parents do not loop (`taxonomy.topic_parent`). An overview
+is an existing `wiki/` page that names the topic itself and introduces only
+that topic (`taxonomy.topic_overview`); when it is not, the reader shows the
+topic as a plain one. While the
 taxonomy lists any topics, a page without one is reported (`wiki.no_topic`,
 info): that is the librarian's sorting backlog, and the reader lists such pages
 under Unsorted.
@@ -448,6 +469,7 @@ exit code never reflects findings, because rules are findings, not write blocks.
 | `taxonomy.unknown_type` | warning | A page uses a type not in the taxonomy |
 | `taxonomy.unknown_topic` | warning | A page names a topic not in the taxonomy |
 | `taxonomy.topic_parent` | warning | A topic's parent is not a topic, or topic parents form a cycle |
+| `taxonomy.topic_overview` | warning | A topic's overview is not an existing `wiki/` page, is another topic's overview too, or names a different topic |
 | `ref.missing_source` | warning | A page's retired `sources` field names a file that does not exist |
 | `ref.missing_trail` | warning | A `trails` or `captured_by_trail` entry has no trail file |
 | `ref.missing_page` | warning | A `contradicts` entry does not exist |

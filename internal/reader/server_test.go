@@ -277,3 +277,82 @@ func TestCachedRenderFollowsLinkedFiles(t *testing.T) {
 	_, _, body = get(t, srv, "/wiki/linker")
 	mustContain(t, body, `<a class="original" href="https://example.org/moved-survey"`)
 }
+
+func nav(body string) string {
+	start := strings.Index(body, `<nav id="nav"`)
+	end := strings.Index(body, "</nav>")
+	if start < 0 || end < start {
+		return ""
+	}
+	return body[start:end]
+}
+
+// A topic with an overview page is one tree entry: a toggle and the
+// overview's title linking to it, with the topic's other pages under it.
+func TestTopicOverviewGroupsItsPages(t *testing.T) {
+	srv, dir := newTestServer(t, &fakeBackend{})
+	files := map[string]string{
+		"taxonomy.yml": taxonomy + `  - {name: projects, description: Our own projects.}
+  - {name: rusty-dagger, description: The project's documentation., parent: projects, overview: wiki/rusty-dagger.md}
+  - {name: broken, description: Overview missing., parent: projects, overview: wiki/nope.md}
+`,
+		"wiki/rusty-dagger.md":        page("Rusty Dagger", "rusty-dagger", "hub", "The project."),
+		"wiki/rusty-dagger/combat.md": page("Combat", "rusty-dagger", "concept", "Combat."),
+		"wiki/rusty-dagger/skills.md": page("Skills", "rusty-dagger", "concept", "Skills."),
+		"wiki/other-project.md":       page("Other project", "projects", "concept", "Other."),
+		"wiki/broken-page.md":         page("Broken page", "broken", "concept", "Broken."),
+	}
+	for rel, body := range files {
+		p := filepath.Join(dir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Elsewhere the group is collapsed; its pages are not flat under Projects.
+	_, _, body := get(t, srv, "/wiki/other-project")
+	tree := nav(body)
+	mustContain(t, tree,
+		`<button class="tree-toggle" type="button" aria-expanded="false" aria-controls="tree-rusty-dagger" aria-label="Pages in Rusty Dagger"></button>`,
+		`<a class="tree-topic" href="/wiki/rusty-dagger">Rusty Dagger</a> <span class="count">3</span>`,
+		`<ul id="tree-rusty-dagger" hidden>`,
+		`<a href="/wiki/rusty-dagger/combat">Combat</a>`,
+	)
+	if n := strings.Count(tree, `href="/wiki/rusty-dagger"`); n != 1 {
+		t.Errorf("the overview is linked %d times in the tree, want once", n)
+	}
+	if n := strings.Count(tree, `href="/wiki/rusty-dagger/combat"`); n != 1 {
+		t.Errorf("a grouped page is linked %d times in the tree, want once", n)
+	}
+	// A topic whose overview is missing stays a plain topic.
+	mustContain(t, tree, `<a class="tree-topic" href="/topic/broken">Broken</a>`, `<a href="/wiki/broken-page">Broken page</a>`)
+	// Topics without an overview keep their details markup.
+	mustContain(t, tree, `<summary><a class="tree-topic" href="/topic/gamedev">Gamedev</a>`)
+
+	// A child page opens its group, highlights itself, and its crumbs lead
+	// through the group to the overview.
+	_, _, body = get(t, srv, "/wiki/rusty-dagger/combat")
+	tree = nav(body)
+	mustContain(t, tree, `aria-expanded="true" aria-controls="tree-rusty-dagger"`, `<ul id="tree-rusty-dagger">`,
+		`<a href="/wiki/rusty-dagger/combat" class="current" aria-current="page">Combat</a>`)
+	mustContain(t, body, `<p class="crumbs"><a href="/">Home</a> › <a href="/topic/projects">Projects</a> › <a href="/wiki/rusty-dagger">Rusty Dagger</a></p>`)
+
+	// The overview highlights the group entry, and its crumbs end before it.
+	_, _, body = get(t, srv, "/wiki/rusty-dagger")
+	tree = nav(body)
+	mustContain(t, tree, `aria-expanded="true"`, `<a class="tree-topic current" href="/wiki/rusty-dagger" aria-current="page">Rusty Dagger</a>`)
+	mustContain(t, body, `<p class="crumbs"><a href="/">Home</a> › <a href="/topic/projects">Projects</a></p>`)
+
+	// The generated topic route still lists the group, linking the overview.
+	code, _, body := get(t, srv, "/topic/rusty-dagger")
+	if code != http.StatusOK {
+		t.Fatalf("topic route: %d", code)
+	}
+	mustContain(t, body, `<h1>Rusty Dagger</h1>`, `<p class="overview">Overview: <a href="/wiki/rusty-dagger">Rusty Dagger</a></p>`, `<a href="/wiki/rusty-dagger/skills">Skills</a>`)
+	if strings.Contains(body[strings.Index(body, "<main"):], `<li><a href="/wiki/rusty-dagger">`) {
+		t.Error("the topic listing repeats the overview among its pages")
+	}
+}

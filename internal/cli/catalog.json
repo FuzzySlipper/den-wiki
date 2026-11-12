@@ -1,5 +1,5 @@
 {
-  "revision": "catalog-4f9b00aefce9",
+  "revision": "catalog-5f0dfb7bcb10",
   "operations": [
     {
       "name": "job_abandon",
@@ -893,7 +893,7 @@
     },
     {
       "name": "wiki_taxonomy",
-      "description": "The page types, tags and topics taxonomy.yml allows, each with its description, parent and the pages using it; plus types, tags and topics pages use that it does not list, the pages with no topic (unsorted), and the taxonomy lint findings. Give each page one topic, the most specific that fits; use listed tags; propose a new tag or topic in your trail.",
+      "description": "The page types, tags and topics taxonomy.yml allows, each with its description, parent, a topic's overview page and the pages using it; plus types, tags and topics pages use that it does not list, the pages with no topic (unsorted), and the taxonomy lint findings. Give each page one topic, the most specific that fits; use listed tags; propose a new tag or topic in your trail.",
       "risk": "read",
       "tier": "default",
       "backend": "lint",

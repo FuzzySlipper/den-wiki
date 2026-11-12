@@ -23,6 +23,15 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelector(".main")?.addEventListener("click", close);
   document.querySelectorAll(".aside a[href^='#']").forEach((a) => a.addEventListener("click", close));
 
+  // Topic groups: the toggle expands the group; the title is a link to the
+  // group's overview page.
+  document.querySelectorAll(".tree-toggle").forEach((b) => b.addEventListener("click", () => {
+    const open = b.getAttribute("aria-expanded") !== "true";
+    b.setAttribute("aria-expanded", String(open));
+    const list = document.getElementById(b.getAttribute("aria-controls"));
+    if (list) list.hidden = !open;
+  }));
+
   // Contents: highlight the section being read.
   const links = new Map();
   document.querySelectorAll(".contents a").forEach((a) => links.set(decodeURIComponent(a.hash.slice(1)), a));

@@ -19,10 +19,31 @@ type Topic struct {
 	Description string
 	Parent      *Topic
 	Children    []*Topic
+	// Overview is the page that introduces the topic (taxonomy.yml's
+	// overview): the tree shows the topic as that page, with the topic's
+	// subtopics and other pages under it. Pages does not list it again.
+	Overview *Entry
 	// Pages are the pages that name this topic: hubs first, then by title.
 	Pages []*Entry
 	// Total counts the pages here and in every subtopic.
 	Total int
+}
+
+// Title is the topic's display name: its overview page's title, or the
+// topic name as a title.
+func (t *Topic) Title() string {
+	if t.Overview != nil {
+		return t.Overview.Title
+	}
+	return titleOf(t.Name)
+}
+
+// URL is where the topic's name links: its overview page, or its listing.
+func (t *Topic) URL() string {
+	if t.Overview != nil {
+		return t.Overview.URL
+	}
+	return "/topic/" + t.Name
 }
 
 // Ancestors returns the topic's parents, outermost first.
@@ -181,6 +202,7 @@ type taxonomyTopics struct {
 		Name        string `yaml:"name"`
 		Description string `yaml:"description"`
 		Parent      string `yaml:"parent"`
+		Overview    string `yaml:"overview"`
 	} `yaml:"topics"`
 }
 
@@ -236,6 +258,25 @@ func (s *site) build(pages []string) (*Library, error) {
 		}
 		lib.Recent = append(lib.Recent, e)
 	}
+	// An overview must be a wiki page this scan found; anything else
+	// (lint's taxonomy.topic_overview) leaves the topic plain. A page
+	// introduces one topic: the first that names it.
+	claimed := map[string]bool{}
+	for _, t := range tax.Topics {
+		node, e := lib.ByName[t.Name], lib.Pages[t.Overview]
+		if node == nil || node.Overview != nil || e == nil || claimed[e.Path] {
+			continue
+		}
+		claimed[e.Path] = true
+		node.Overview = e
+		// The overview is the topic's entry, so it is not listed again
+		// wherever its own topic field would put it.
+		if home := lib.ByName[e.Topic]; home != nil {
+			home.Pages = without(home.Pages, e)
+		} else {
+			lib.Unsorted = without(lib.Unsorted, e)
+		}
+	}
 	for _, t := range lib.ByName {
 		sortEntries(t.Pages)
 	}
@@ -256,6 +297,16 @@ func descends(t, node *Topic) bool {
 		}
 	}
 	return false
+}
+
+func without(es []*Entry, e *Entry) []*Entry {
+	out := es[:0:0]
+	for _, x := range es {
+		if x != e {
+			out = append(out, x)
+		}
+	}
+	return out
 }
 
 func contains(ts []*Topic, t *Topic) bool {

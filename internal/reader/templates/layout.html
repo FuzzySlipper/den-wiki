@@ -43,6 +43,18 @@
 {{end}}
 
 {{define "treenode"}}{{$t := .Topic}}
+{{if $t.Overview}}
+<li class="tree-item tree-group">
+  <div class="tree-group-head">
+    <button class="tree-toggle" type="button" aria-expanded="{{if .Open}}true{{else}}false{{end}}" aria-controls="tree-{{$t.Name}}" aria-label="Pages in {{$t.Title}}"></button>
+    <a class="tree-topic{{if .Here}} current{{end}}" href="{{$t.URL}}"{{if eq .Current $t.Overview.Path}} aria-current="page"{{end}}>{{$t.Title}}</a> <span class="count">{{$t.Total}}</span>
+  </div>
+  <ul id="tree-{{$t.Name}}"{{if not .Open}} hidden{{end}}>
+    {{range $t.Children}}{{template "treenode" (treeArgs . $.Current)}}{{end}}
+    {{range $t.Pages}}<li class="tree-page"><a href="{{.URL}}"{{if eq .Path $.Current}} class="current" aria-current="page"{{end}}>{{.Title}}</a></li>{{end}}
+  </ul>
+</li>
+{{else}}
 <li class="tree-item">
   <details{{if .Open}} open{{end}}>
     <summary><a class="tree-topic{{if .Here}} current{{end}}" href="/topic/{{$t.Name}}">{{titleOf $t.Name}}</a> <span class="count">{{$t.Total}}</span></summary>
@@ -51,7 +63,8 @@
       {{range $t.Pages}}<li class="tree-page"><a href="{{.URL}}"{{if eq .Path $.Current}} class="current" aria-current="page"{{end}}>{{.Title}}</a></li>{{end}}
     </ul>
   </details>
-</li>{{end}}
+</li>
+{{end}}{{end}}
 
 {{define "home"}}
 <h1>{{.Site}}</h1>
@@ -61,7 +74,7 @@
   <section class="topic-card">
     <h2><a href="/topic/{{.Name}}">{{titleOf .Name}}</a> <span class="count">{{.Total}}</span></h2>
     <p>{{.Description}}</p>
-    {{if .Children}}<p class="subtopics">{{range $i, $c := .Children}}{{if $i}} · {{end}}<a href="/topic/{{$c.Name}}">{{titleOf $c.Name}}</a> <span class="count">{{$c.Total}}</span>{{end}}</p>{{end}}
+    {{if .Children}}<p class="subtopics">{{range $i, $c := .Children}}{{if $i}} · {{end}}<a href="{{$c.URL}}">{{$c.Title}}</a> <span class="count">{{$c.Total}}</span>{{end}}</p>{{end}}
   </section>
   {{end}}
   {{if .Lib.Unsorted}}<section class="topic-card"><h2><a href="/unsorted">Unsorted</a> <span class="count">{{len .Lib.Unsorted}}</span></h2><p>Pages with no topic yet.</p></section>{{end}}
@@ -78,12 +91,13 @@
 {{end}}
 
 {{define "topic"}}{{$t := .Topic}}
-<p class="crumbs"><a href="/">Home</a>{{range $t.Ancestors}} › <a href="/topic/{{.Name}}">{{titleOf .Name}}</a>{{end}}</p>
-<h1>{{titleOf $t.Name}}</h1>
+<p class="crumbs"><a href="/">Home</a>{{range $t.Ancestors}} › <a href="{{.URL}}">{{.Title}}</a>{{end}}</p>
+<h1>{{$t.Title}}</h1>
 {{if $t.Description}}<p class="lede">{{$t.Description}}</p>{{end}}
+{{with $t.Overview}}<p class="overview">Overview: <a href="{{.URL}}">{{.Title}}</a></p>{{end}}
 {{if $t.Children}}
 <h2>Subtopics</h2>
-<ul class="listing">{{range $t.Children}}<li><a href="/topic/{{.Name}}">{{titleOf .Name}}</a> <span class="count">{{.Total}}</span>{{if .Description}}<p>{{.Description}}</p>{{end}}</li>{{end}}</ul>
+<ul class="listing">{{range $t.Children}}<li><a href="{{.URL}}">{{.Title}}</a> <span class="count">{{.Total}}</span>{{if .Description}}<p>{{.Description}}</p>{{end}}</li>{{end}}</ul>
 {{end}}
 {{if $t.Pages}}
 <h2>Pages</h2>
@@ -108,7 +122,7 @@
 
 {{define "doc"}}{{$d := .Doc}}
 <article class="page zone-{{$d.Zone}}">
-  {{if $d.TopicNode}}<p class="crumbs"><a href="/">Home</a>{{range $d.TopicNode.Ancestors}} › <a href="/topic/{{.Name}}">{{titleOf .Name}}</a>{{end}} › <a href="/topic/{{$d.TopicNode.Name}}">{{titleOf $d.TopicNode.Name}}</a></p>
+  {{if $d.TopicNode}}<p class="crumbs"><a href="/">Home</a>{{range $d.TopicNode.Ancestors}} › <a href="{{.URL}}">{{.Title}}</a>{{end}}{{if not $d.IsOverview}} › <a href="{{$d.TopicNode.URL}}">{{$d.TopicNode.Title}}</a>{{end}}</p>
   {{else if ne $d.Zone "wiki"}}<p class="crumbs"><a href="/">Home</a> › {{if eq $d.Zone "sources"}}Captured source{{else}}Research trail{{end}}</p>{{end}}
   <h1>{{$d.Title}}</h1>
   <p class="byline">
@@ -139,7 +153,7 @@
   <h2>About this page</h2>
   <dl>
     {{with $d.Fields.Str "type"}}<dt>Type</dt><dd>{{.}}</dd>{{end}}
-    {{if $d.TopicNode}}<dt>Topic</dt><dd><a href="/topic/{{$d.TopicNode.Name}}">{{titleOf $d.TopicNode.Name}}</a></dd>{{else}}<dt>Topic</dt><dd><a href="/unsorted">unsorted</a></dd>{{end}}
+    {{if $d.TopicNode}}<dt>Topic</dt><dd><a href="/topic/{{$d.TopicNode.Name}}">{{$d.TopicNode.Title}}</a></dd>{{else}}<dt>Topic</dt><dd><a href="/unsorted">unsorted</a></dd>{{end}}
     {{if $d.Tags}}<dt>Tags</dt><dd>{{range $i, $t := $d.Tags}}{{if $i}}, {{end}}{{$t}}{{end}}</dd>{{end}}
     {{with $d.Fields.Str "confidence"}}<dt>Confidence</dt><dd>{{.}}</dd>{{end}}
     <dt>Curation</dt><dd>{{or ($d.Fields.Str "curation") "unreviewed"}}</dd>
